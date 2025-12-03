@@ -36,10 +36,10 @@ Phase 8: 測試與驗證          [P0] ████░░░░░░  4 tasks
 **目標**: 建立標準化的專案目錄結構
 
 **執行步驟**:
-- [ ] 建立專案根目錄結構
-- [ ] 初始化 Git 版本控制
-- [ ] 建立 `.gitignore` 文件
-- [ ] 建立 `README.md` 專案說明
+- [x] 建立專案根目錄結構
+- [x] 初始化 Git 版本控制
+- [x] 建立 `.gitignore` 文件
+- [x] 建立 `README.md` 專案說明
 
 **目錄結構** (UV 標準 src-layout):
 ```
@@ -148,8 +148,8 @@ flash-sale-system/
 > **注意**: UV 使用 `src-layout` 結構，源碼放在 `src/` 目錄下，這是 Python 打包的最佳實踐，可避免直接導入未安裝的套件。
 
 **驗收標準**:
-- [ ] 目錄結構完整建立
-- [ ] Git 初始化完成，首次 commit
+- [x] 目錄結構完整建立
+- [x] Git 初始化完成，首次 commit
 
 ---
 
@@ -163,13 +163,13 @@ flash-sale-system/
 > - 安裝方式: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 **執行步驟**:
-- [ ] 安裝 UV 套件管理工具
-- [ ] 使用 UV 初始化專案 (`uv init --lib`)
-- [ ] 配置 `pyproject.toml` 定義依賴
-- [ ] 建立 `.python-version` 指定 Python 版本
-- [ ] 執行 `uv sync` 安裝依賴 (自動建立虛擬環境)
-- [ ] 建立 `docker-compose.yml` 本地服務
-- [ ] 配置環境變數模板 `.env.example`
+- [x] 安裝 UV 套件管理工具
+- [x] 使用 UV 初始化專案 (`uv init --lib`)
+- [x] 配置 `pyproject.toml` 定義依賴
+- [x] 建立 `.python-version` 指定 Python 版本
+- [x] 執行 `uv sync` 安裝依賴 (自動建立虛擬環境)
+- [x] 建立 `docker-compose.yml` 本地服務
+- [x] 配置環境變數模板 `.env.example`
 
 **UV 專案初始化**:
 ```bash
@@ -291,11 +291,11 @@ services:
 ```
 
 **驗收標準**:
-- [ ] `uv sync` 成功建立虛擬環境並安裝依賴
-- [ ] `uv run python -c "import app"` 可正確導入
-- [ ] `docker-compose up -d` 啟動本地資料庫
-- [ ] 環境變數模板包含所有必要配置
-- [ ] `uv.lock` 檔案自動生成
+- [x] `uv sync` 成功建立虛擬環境並安裝依賴
+- [x] `uv run python -c "import app"` 可正確導入
+- [x] `docker-compose up -d` 啟動本地資料庫
+- [x] 環境變數模板包含所有必要配置
+- [x] `uv.lock` 檔案自動生成
 
 ---
 
@@ -305,10 +305,10 @@ services:
 **目標**: 建立 FastAPI 應用程式基礎結構
 
 **執行步驟**:
-- [ ] 建立 `main.py` 應用入口
-- [ ] 配置 CORS 中間件
-- [ ] 建立健康檢查端點 `/health`
-- [ ] 配置 OpenAPI 文檔
+- [x] 建立 `main.py` 應用入口
+- [x] 配置 CORS 中間件
+- [x] 建立健康檢查端點 `/health`
+- [x] 配置 OpenAPI 文檔
 
 **程式碼位置**: `backend/src/app/main.py`
 
@@ -333,9 +333,9 @@ async def health_check():
 ```
 
 **驗收標準**:
-- [ ] `uv run uvicorn app.main:app --reload` 成功啟動
-- [ ] `/health` 端點回傳 200
-- [ ] `/docs` 顯示 Swagger UI
+- [x] `uv run uvicorn app.main:app --reload` 成功啟動
+- [x] `/health` 端點回傳 200
+- [x] `/docs` 顯示 Swagger UI
 
 ---
 
@@ -345,17 +345,17 @@ async def health_check():
 **目標**: 建立統一的配置管理
 
 **執行步驟**:
-- [ ] 建立 `src/app/core/config.py` 配置類
-- [ ] 建立 `src/app/core/database.py` 資料庫連接
-- [ ] 建立 `src/app/core/redis.py` Redis 連接
-- [ ] 建立 `src/app/core/security.py` 安全相關
+- [x] 建立 `src/app/core/config.py` 配置類
+- [x] 建立 `src/app/core/database.py` 資料庫連接
+- [x] 建立 `src/app/core/redis.py` Redis 連接
+- [x] 建立 `src/app/core/security.py` 安全相關
 
 **程式碼位置**: `backend/src/app/core/`
 
 **驗收標準**:
-- [ ] 配置從環境變數正確讀取
-- [ ] 資料庫連接池建立成功
-- [ ] Redis 連接測試通過
+- [x] 配置從環境變數正確讀取
+- [x] 資料庫連接池建立成功
+- [x] Redis 連接測試通過
 
 ---
 

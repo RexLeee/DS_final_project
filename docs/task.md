@@ -367,11 +367,11 @@ async def health_check():
 **目標**: 建立資料庫表結構
 
 **執行步驟**:
-- [ ] 建立 `models/user.py` - 用戶模型
-- [ ] 建立 `models/product.py` - 商品模型
-- [ ] 建立 `models/campaign.py` - 活動模型
-- [ ] 建立 `models/bid.py` - 出價模型
-- [ ] 建立 `models/order.py` - 訂單模型
+- [x] 建立 `models/user.py` - 用戶模型
+- [x] 建立 `models/product.py` - 商品模型
+- [x] 建立 `models/campaign.py` - 活動模型
+- [x] 建立 `models/bid.py` - 出價模型
+- [x] 建立 `models/order.py` - 訂單模型
 
 **資料表定義** (依據 technical_spec.md 第 2.1 節):
 
@@ -384,9 +384,9 @@ async def health_check():
 | orders | order_id, campaign_id, user_id, final_price, final_rank | 訂單資料 |
 
 **驗收標準**:
-- [ ] 所有 SQLAlchemy 模型定義完成
-- [ ] 外鍵關係正確設定
-- [ ] 索引依據 spec 建立
+- [x] 所有 SQLAlchemy 模型定義完成
+- [x] 外鍵關係正確設定
+- [x] 索引依據 spec 建立
 
 ---
 
@@ -396,15 +396,15 @@ async def health_check():
 **目標**: 配置 Alembic 資料庫遷移工具
 
 **執行步驟**:
-- [ ] 初始化 Alembic (`alembic init alembic`)
-- [ ] 配置 `alembic.ini` 連接字串
-- [ ] 建立初始遷移腳本
-- [ ] 執行遷移建立資料表
+- [x] 初始化 Alembic (`alembic init alembic`)
+- [x] 配置 `alembic.ini` 連接字串
+- [x] 建立初始遷移腳本
+- [x] 執行遷移建立資料表
 
 **驗收標準**:
-- [ ] `alembic upgrade head` 成功執行
-- [ ] 資料庫中正確建立所有表
-- [ ] 可以產生新的遷移腳本
+- [x] `alembic upgrade head` 成功執行
+- [x] 資料庫中正確建立所有表
+- [x] 可以產生新的遷移腳本
 
 ---
 
@@ -414,10 +414,10 @@ async def health_check():
 **目標**: 實作 Redis 資料結構封裝
 
 **執行步驟**:
-- [ ] 建立 `services/redis_service.py`
-- [ ] 實作排名 Sorted Set 操作
-- [ ] 實作庫存計數器操作
-- [ ] 實作分散式鎖操作
+- [x] 建立 `services/redis_service.py`
+- [x] 實作排名 Sorted Set 操作
+- [x] 實作庫存計數器操作
+- [x] 實作分散式鎖操作
 
 **Redis Key 設計** (依據 technical_spec.md 第 2.2 節):
 
@@ -440,9 +440,9 @@ class RedisService:
 ```
 
 **驗收標準**:
-- [ ] Sorted Set 排名操作正確
-- [ ] 庫存原子扣減正確
-- [ ] 分散式鎖獲取/釋放正確
+- [x] Sorted Set 排名操作正確
+- [x] 庫存原子扣減正確
+- [x] 分散式鎖獲取/釋放正確
 
 ---
 
@@ -452,13 +452,13 @@ class RedisService:
 **目標**: 實作活動參數快取機制
 
 **執行步驟**:
-- [ ] 活動建立時同步到 Redis
-- [ ] 活動查詢優先讀取 Redis
-- [ ] 實作快取失效策略
+- [x] 活動建立時同步到 Redis
+- [x] 活動查詢優先讀取 Redis
+- [x] 實作快取失效策略
 
 **驗收標準**:
-- [ ] 活動參數可從 Redis 快速讀取
-- [ ] 快取與資料庫保持一致
+- [x] 活動參數可從 Redis 快速讀取
+- [x] 快取與資料庫保持一致
 
 ---
 
@@ -468,10 +468,10 @@ class RedisService:
 **目標**: 建立開發用種子資料
 
 **執行步驟**:
-- [ ] 建立 `scripts/seed_data.py`
-- [ ] 產生測試用戶 (含不同權重 W)
-- [ ] 產生測試商品
-- [ ] 產生測試活動
+- [x] 建立 `scripts/seed_data.py`
+- [x] 產生測試用戶 (含不同權重 W)
+- [x] 產生測試商品
+- [x] 產生測試活動
 
 **測試資料規格**:
 - 100 個測試用戶 (權重 W: 0.5 ~ 5.0)
@@ -479,8 +479,8 @@ class RedisService:
 - 1 個進行中活動 (庫存 K=10)
 
 **驗收標準**:
-- [ ] 執行腳本後資料正確寫入
-- [ ] 可用於後續 API 測試
+- [x] 執行腳本後資料正確寫入
+- [x] 可用於後續 API 測試
 
 ---
 
@@ -490,9 +490,9 @@ class RedisService:
 **目標**: 優化資料庫連接效能
 
 **執行步驟**:
-- [ ] 配置 SQLAlchemy 異步連接池
-- [ ] 設定連接池大小與超時
-- [ ] 實作連接健康檢查
+- [x] 配置 SQLAlchemy 異步連接池
+- [x] 設定連接池大小與超時
+- [x] 實作連接健康檢查
 
 **配置參數**:
 ```python
@@ -504,8 +504,8 @@ pool_recycle = 1800
 ```
 
 **驗收標準**:
-- [ ] 連接池正常運作
-- [ ] 高並發下連接不會耗盡
+- [x] 連接池正常運作
+- [x] 高並發下連接不會耗盡
 
 ---
 

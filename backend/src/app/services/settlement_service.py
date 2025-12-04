@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, select, update
@@ -12,6 +13,7 @@ from app.models.campaign import Campaign
 from app.models.order import Order
 from app.services.inventory_service import InventoryService
 from app.services.redis_service import RedisService
+from app.services.ws_manager import broadcast_campaign_ended
 
 
 class SettlementService:
@@ -148,6 +150,16 @@ class SettlementService:
         # Refresh orders to get created_at
         for order in orders:
             await self.db.refresh(order)
+
+        # Broadcast campaign ended event to all connected users
+        winners: dict[str, dict[str, Any]] = {}
+        for order in orders:
+            winners[str(order.user_id)] = {
+                "rank": order.final_rank,
+                "score": float(order.final_score),
+                "price": float(order.final_price),
+            }
+        await broadcast_campaign_ended(campaign_id_str, winners)
 
         return orders
 

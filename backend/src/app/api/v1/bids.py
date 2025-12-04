@@ -1,5 +1,6 @@
 """Bidding API endpoints."""
 
+import asyncio
 from decimal import Decimal
 from uuid import UUID
 
@@ -12,6 +13,7 @@ from app.models.campaign import Campaign
 from app.schemas.bid import BidCreate, BidHistoryResponse, BidResponse
 from app.services.bid_service import BidService
 from app.services.redis_service import RedisService
+from app.services.ws_manager import send_bid_accepted
 
 router = APIRouter()
 
@@ -97,6 +99,19 @@ async def submit_bid(
                 detail={"code": "PRICE_TOO_LOW", "message": f"Price must be at least {min_price}"},
             )
         raise
+
+    # Send WebSocket notification (non-blocking)
+    asyncio.create_task(
+        send_bid_accepted(
+            campaign_id=str(bid.campaign_id),
+            user_id=str(current_user.user_id),
+            bid_id=str(bid.bid_id),
+            price=float(bid.price),
+            score=float(bid.score),
+            rank=rank,
+            time_elapsed_ms=bid.time_elapsed_ms,
+        )
+    )
 
     return BidResponse(
         bid_id=bid.bid_id,

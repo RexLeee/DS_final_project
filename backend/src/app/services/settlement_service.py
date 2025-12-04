@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.bid import Bid
 from app.models.campaign import Campaign
 from app.models.order import Order
+from app.services.inventory_service import InventoryService
 from app.services.redis_service import RedisService
 
 
@@ -19,6 +20,7 @@ class SettlementService:
     def __init__(self, db: AsyncSession, redis_service: RedisService):
         self.db = db
         self.redis_service = redis_service
+        self.inventory_service = InventoryService(db, redis_service)
 
     async def check_campaign_needs_settlement(self, campaign_id: UUID) -> bool:
         """Check if a campaign needs settlement.
@@ -87,23 +89,20 @@ class SettlementService:
             rank = ranking["rank"]
             score = ranking["score"]
 
-            # Acquire distributed lock for stock
-            acquired, owner_id = await self.redis_service.acquire_lock(
-                str(product_id), ttl=5
+            # Use four-layer protection for stock decrement
+            # Layer 1: Redis distributed lock
+            # Layer 2: Redis atomic decrement
+            # Layer 3: PostgreSQL SELECT FOR UPDATE
+            # Layer 4: Optimistic locking with version check
+            success, owner_id = await self.inventory_service.decrement_stock_with_protection(
+                product_id
             )
 
-            if not acquired:
-                continue  # Skip if can't acquire lock
+            if not success:
+                # Stock exhausted or lock acquisition failed
+                continue
 
             try:
-                # Decrement stock atomically
-                new_stock = await self.redis_service.decrement_stock(str(product_id))
-
-                if new_stock < 0:
-                    # Insufficient stock, rollback
-                    await self.redis_service.increment_stock(str(product_id))
-                    continue
-
                 # Get bid to get the final price
                 bid_result = await self.db.execute(
                     select(Bid).where(
@@ -117,7 +116,7 @@ class SettlementService:
 
                 if not bid:
                     # No bid found, rollback stock
-                    await self.redis_service.increment_stock(str(product_id))
+                    await self.inventory_service.rollback_stock(product_id)
                     continue
 
                 # Create order
@@ -134,8 +133,8 @@ class SettlementService:
                 orders.append(order)
 
             finally:
-                # Release lock
-                await self.redis_service.release_lock(str(product_id), owner_id)
+                # Always release the distributed lock
+                await self.inventory_service.release_lock(product_id, owner_id)
 
         # Update campaign status to ended
         await self.db.execute(

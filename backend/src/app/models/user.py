@@ -49,6 +49,10 @@ class User(Base, TimestampMixin):
         nullable=False,
         default="active",
     )
+    is_admin: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+    )
 
     # Relationships
     bids: Mapped[List["Bid"]] = relationship("Bid", back_populates="user")

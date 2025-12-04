@@ -517,11 +517,11 @@ pool_recycle = 1800
 **目標**: 實作用戶註冊功能
 
 **執行步驟**:
-- [ ] 建立 `schemas/user.py` 請求/回應 schema
-- [ ] 建立 `services/user_service.py` 業務邏輯
-- [ ] 建立 `api/v1/auth.py` 路由
-- [ ] 實作密碼 bcrypt 雜湊
-- [ ] 實作會員權重 W 隨機分配
+- [x] 建立 `schemas/user.py` 請求/回應 schema
+- [x] 建立 `services/user_service.py` 業務邏輯
+- [x] 建立 `api/v1/auth.py` 路由
+- [x] 實作密碼 bcrypt 雜湊
+- [x] 實作會員權重 W 隨機分配
 
 **API 端點**: `POST /api/v1/auth/register`
 
@@ -550,9 +550,9 @@ pool_recycle = 1800
 - 權重 W 隨機分配 (範圍: 0.5 ~ 5.0)
 
 **驗收標準**:
-- [ ] 註冊成功回傳用戶資訊
-- [ ] 重複 email 回傳 400 錯誤
-- [ ] 密碼正確雜湊儲存
+- [x] 註冊成功回傳用戶資訊
+- [x] 重複 email 回傳 400 錯誤
+- [x] 密碼正確雜湊儲存
 
 ---
 
@@ -562,10 +562,10 @@ pool_recycle = 1800
 **目標**: 實作 JWT 登入認證
 
 **執行步驟**:
-- [ ] 實作密碼驗證邏輯
-- [ ] 實作 JWT Token 生成
-- [ ] 建立登入 API 端點
-- [ ] 建立 Token 驗證中間件
+- [x] 實作密碼驗證邏輯
+- [x] 實作 JWT Token 生成
+- [x] 建立登入 API 端點
+- [x] 建立 Token 驗證中間件
 
 **API 端點**: `POST /api/v1/auth/login`
 
@@ -592,9 +592,9 @@ pool_recycle = 1800
 - Payload: user_id, email, weight
 
 **驗收標準**:
-- [ ] 正確帳密可取得 Token
-- [ ] 錯誤帳密回傳 401
-- [ ] Token 可用於後續 API 認證
+- [x] 正確帳密可取得 Token
+- [x] 錯誤帳密回傳 401
+- [x] Token 可用於後續 API 認證
 
 ---
 
@@ -604,14 +604,14 @@ pool_recycle = 1800
 **目標**: 實作取得當前用戶資訊
 
 **執行步驟**:
-- [ ] 建立認證依賴注入 `get_current_user`
-- [ ] 建立 `/api/v1/auth/me` 端點
+- [x] 建立認證依賴注入 `get_current_user`
+- [x] 建立 `/api/v1/auth/me` 端點
 
 **API 端點**: `GET /api/v1/auth/me`
 
 **驗收標準**:
-- [ ] 帶 Token 可取得用戶資訊 (含權重 W)
-- [ ] 無 Token 回傳 401
+- [x] 帶 Token 可取得用戶資訊 (含權重 W)
+- [x] 無 Token 回傳 401
 
 ---
 
@@ -621,11 +621,11 @@ pool_recycle = 1800
 **目標**: 實作商品 CRUD
 
 **執行步驟**:
-- [ ] 建立 `schemas/product.py`
-- [ ] 建立 `services/product_service.py`
-- [ ] 建立 `api/v1/products.py`
-- [ ] 實作商品列表查詢
-- [ ] 實作商品建立 (管理員)
+- [x] 建立 `schemas/product.py`
+- [x] 建立 `services/product_service.py`
+- [x] 建立 `api/v1/products.py`
+- [x] 實作商品列表查詢
+- [x] 實作商品建立 (管理員)
 
 **API 端點**:
 | 方法 | 端點 | 說明 |
@@ -646,9 +646,9 @@ pool_recycle = 1800
 ```
 
 **驗收標準**:
-- [ ] 商品列表正確回傳
-- [ ] 商品建立成功
-- [ ] 庫存 stock 初始化到 Redis
+- [x] 商品列表正確回傳
+- [x] 商品建立成功
+- [x] 庫存 stock 初始化到 Redis
 
 ---
 
@@ -658,12 +658,12 @@ pool_recycle = 1800
 **目標**: 實作活動建立與管理
 
 **執行步驟**:
-- [ ] 建立 `schemas/campaign.py`
-- [ ] 建立 `services/campaign_service.py`
-- [ ] 建立 `api/v1/campaigns.py`
-- [ ] 實作活動建立 (含參數 α, β, γ)
-- [ ] 實作活動列表與詳情
-- [ ] 同步活動資訊到 Redis
+- [x] 建立 `schemas/campaign.py`
+- [x] 建立 `services/campaign_service.py`
+- [x] 建立 `api/v1/campaigns.py`
+- [x] 實作活動建立 (含參數 α, β, γ)
+- [x] 實作活動列表與詳情
+- [x] 同步活動資訊到 Redis
 
 **API 端點**:
 | 方法 | 端點 | 說明 |
@@ -704,9 +704,9 @@ pool_recycle = 1800
 ```
 
 **驗收標準**:
-- [ ] 活動建立成功並同步 Redis
-- [ ] 活動列表顯示狀態 (pending/active/ended)
-- [ ] 活動詳情包含即時統計
+- [x] 活動建立成功並同步 Redis
+- [x] 活動列表顯示狀態 (pending/active/ended)
+- [x] 活動詳情包含即時統計
 
 ---
 
@@ -716,12 +716,12 @@ pool_recycle = 1800
 **目標**: 實作競標出價核心邏輯
 
 **執行步驟**:
-- [ ] 建立 `schemas/bid.py`
-- [ ] 建立 `services/bid_service.py`
-- [ ] 建立 `api/v1/bids.py`
-- [ ] 實作積分計算公式
-- [ ] 實作出價驗證邏輯
-- [ ] 更新 Redis 排名
+- [x] 建立 `schemas/bid.py`
+- [x] 建立 `services/bid_service.py`
+- [x] 建立 `api/v1/bids.py`
+- [x] 實作積分計算公式
+- [x] 實作出價驗證邏輯
+- [x] 更新 Redis 排名
 
 **API 端點**: `POST /api/v1/bids`
 
@@ -767,11 +767,11 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 7. 異步寫入 PostgreSQL
 
 **驗收標準**:
-- [ ] 出價成功回傳積分與排名
-- [ ] 積分計算公式正確
-- [ ] Redis 排名即時更新
-- [ ] 活動未開始/已結束回傳錯誤
-- [ ] 出價低於底價回傳錯誤
+- [x] 出價成功回傳積分與排名
+- [x] 積分計算公式正確
+- [x] Redis 排名即時更新
+- [x] 活動未開始/已結束回傳錯誤
+- [x] 出價低於底價回傳錯誤
 
 ---
 
@@ -781,9 +781,9 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 **目標**: 實作出價更新功能
 
 **執行步驟**:
-- [ ] 在 `services/bid_service.py` 新增更新邏輯
-- [ ] 重新計算反應時間 T (以新時間為準)
-- [ ] 重新計算積分並更新排名
+- [x] 在 `services/bid_service.py` 新增更新邏輯
+- [x] 重新計算反應時間 T (以新時間為準)
+- [x] 重新計算積分並更新排名
 
 **業務規則**:
 - 每次更新出價，T 以最新出價時間計算
@@ -791,9 +791,9 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 - Redis 直接 ZADD 覆蓋舊分數
 
 **驗收標準**:
-- [ ] 更新出價後積分重新計算
-- [ ] 反應時間 T 以新時間為準
-- [ ] 排名正確更新
+- [x] 更新出價後積分重新計算
+- [x] 反應時間 T 以新時間為準
+- [x] 排名正確更新
 
 ---
 
@@ -803,10 +803,10 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 **目標**: 實作排名看板查詢
 
 **執行步驟**:
-- [ ] 建立 `services/ranking_service.py`
-- [ ] 建立 `api/v1/rankings.py`
-- [ ] 實作 Top K 排名查詢
-- [ ] 實作個人排名查詢
+- [x] 建立 `services/ranking_service.py`
+- [x] 建立 `api/v1/rankings.py`
+- [x] 實作 Top K 排名查詢
+- [x] 實作個人排名查詢
 
 **API 端點**:
 | 方法 | 端點 | 說明 |
@@ -830,9 +830,9 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 ```
 
 **驗收標準**:
-- [ ] Top K 排名正確 (K 為商品庫存)
-- [ ] 個人排名查詢正確
-- [ ] 統計資訊 (最高分、最低得標分) 正確
+- [x] Top K 排名正確 (K 為商品庫存)
+- [x] 個人排名查詢正確
+- [x] 統計資訊 (最高分、最低得標分) 正確
 
 ---
 
@@ -842,14 +842,14 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 **目標**: 查詢用戶出價歷史
 
 **執行步驟**:
-- [ ] 建立出價歷史查詢端點
-- [ ] 從 PostgreSQL 查詢用戶出價記錄
+- [x] 建立出價歷史查詢端點
+- [x] 從 PostgreSQL 查詢用戶出價記錄
 
 **API 端點**: `GET /api/v1/bids/{campaign_id}/history`
 
 **驗收標準**:
-- [ ] 回傳用戶所有出價記錄
-- [ ] 按時間排序
+- [x] 回傳用戶所有出價記錄
+- [x] 按時間排序
 
 ---
 
@@ -859,10 +859,10 @@ def calculate_score(price: float, time_elapsed_ms: int, weight: float,
 **目標**: 實作活動結束自動結算
 
 **執行步驟**:
-- [ ] 建立 `services/settlement_service.py`
-- [ ] 實作定時檢查活動狀態
-- [ ] 實作結算邏輯 (Top K 訂單建立)
-- [ ] 實作防超賣驗證
+- [x] 建立 `services/settlement_service.py`
+- [x] 實作定時檢查活動狀態
+- [x] 實作結算邏輯 (Top K 訂單建立)
+- [x] 實作防超賣驗證
 
 **結算流程**:
 1. 檢查活動是否已到結束時間
@@ -880,9 +880,9 @@ async def check_campaign_settlement():
 ```
 
 **驗收標準**:
-- [ ] 活動結束自動觸發結算
-- [ ] 訂單數量 ≤ 庫存 K (絕對不超賣)
-- [ ] 得標者為排名前 K 名
+- [x] 活動結束自動觸發結算
+- [x] 訂單數量 ≤ 庫存 K (絕對不超賣)
+- [x] 得標者為排名前 K 名
 
 ---
 
@@ -892,9 +892,9 @@ async def check_campaign_settlement():
 **目標**: 實作訂單查詢功能
 
 **執行步驟**:
-- [ ] 建立 `schemas/order.py`
-- [ ] 建立 `services/order_service.py`
-- [ ] 建立 `api/v1/orders.py`
+- [x] 建立 `schemas/order.py`
+- [x] 建立 `services/order_service.py`
+- [x] 建立 `api/v1/orders.py`
 
 **API 端點**:
 | 方法 | 端點 | 說明 |
@@ -903,8 +903,8 @@ async def check_campaign_settlement():
 | GET | `/api/v1/orders/{campaign_id}` | 活動訂單 (管理員) |
 
 **驗收標準**:
-- [ ] 用戶可查詢自己的訂單
-- [ ] 管理員可查詢活動所有訂單
+- [x] 用戶可查詢自己的訂單
+- [x] 管理員可查詢活動所有訂單
 
 ---
 
@@ -914,9 +914,9 @@ async def check_campaign_settlement():
 **目標**: 實作 API 限流保護
 
 **執行步驟**:
-- [ ] 建立 `middleware/rate_limit.py`
-- [ ] 實作 Token Bucket 演算法
-- [ ] 配置不同端點的限流規則
+- [x] 建立 `middleware/rate_limit.py`
+- [x] 實作 Token Bucket 演算法
+- [x] 配置不同端點的限流規則
 
 **限流規則** (依據 technical_spec.md 第 3.2 節):
 | 限流層級 | 限制 |
@@ -927,8 +927,8 @@ async def check_campaign_settlement():
 **實作方式**: 使用 Redis + Lua 腳本
 
 **驗收標準**:
-- [ ] 超過限流回傳 429
-- [ ] 回應包含 `Retry-After` header
+- [x] 超過限流回傳 429
+- [x] 回應包含 `Retry-After` header
 
 ---
 

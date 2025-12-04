@@ -25,9 +25,10 @@ from app.services.redis_service import RedisService
 
 
 async def seed_users(session: AsyncSession) -> list[User]:
-    """Create 100 test users with random weights.
+    """Create 1 admin + 100 test users with random weights.
 
     Users:
+    - Admin: admin@test.com / admin123 (is_admin=True)
     - Email: user001@test.com to user100@test.com
     - Password: password123 (bcrypt hashed)
     - Weight: Random between 0.5 and 5.0
@@ -41,8 +42,22 @@ async def seed_users(session: AsyncSession) -> list[User]:
         result = await session.execute(select(User))
         return list(result.scalars().all())
 
-    password_hash = get_password_hash("password123")
     users = []
+
+    # Create admin user
+    admin = User(
+        email="admin@test.com",
+        password_hash=get_password_hash("admin123"),
+        username="admin",
+        weight=Decimal("1.0"),
+        status="active",
+        is_admin=True,
+    )
+    users.append(admin)
+    print("  Created admin: admin@test.com / admin123")
+
+    # Create 100 test users
+    password_hash = get_password_hash("password123")
 
     for i in range(1, 101):
         weight = round(random.uniform(0.5, 5.0), 2)

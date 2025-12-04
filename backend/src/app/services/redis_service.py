@@ -52,31 +52,52 @@ class RedisService:
 
     # ==================== Ranking Operations ====================
 
-    async def update_ranking(self, campaign_id: str, user_id: str, score: float) -> None:
+    async def update_ranking(
+        self,
+        campaign_id: str,
+        user_id: str,
+        score: float,
+        price: float | None = None,
+        username: str | None = None,
+    ) -> None:
         """Update user's ranking in a campaign.
 
         Uses ZADD to add or update user's score in the sorted set.
-        Key pattern: bid:{campaign_id}
+        Also stores bid details (price, username) in a hash.
+        Key pattern: bid:{campaign_id} (sorted set), bid_details:{campaign_id} (hash)
 
         Args:
             campaign_id: Campaign UUID string
             user_id: User UUID string
             score: Calculated score for ranking
+            price: Bid price (optional)
+            username: User's username (optional)
         """
         key = f"bid:{campaign_id}"
         await self.redis.zadd(key, {user_id: score})
 
+        # Store bid details if provided
+        if price is not None or username is not None:
+            details_key = f"bid_details:{campaign_id}:{user_id}"
+            details = {}
+            if price is not None:
+                details["price"] = str(price)
+            if username is not None:
+                details["username"] = username
+            await self.redis.hset(details_key, mapping=details)
+
     async def get_top_k(self, campaign_id: str, k: int) -> list[dict[str, Any]]:
-        """Get top K ranked users for a campaign.
+        """Get top K ranked users for a campaign with bid details.
 
         Uses ZREVRANGE to get highest scores first.
+        Also fetches bid details (price, username) for each user.
 
         Args:
             campaign_id: Campaign UUID string
             k: Number of top users to return
 
         Returns:
-            List of dicts with user_id, score, and rank
+            List of dicts with user_id, score, rank, price, and username
         """
         key = f"bid:{campaign_id}"
         # ZREVRANGE returns list of (member, score) tuples with withscores=True
@@ -84,11 +105,22 @@ class RedisService:
 
         rankings = []
         for rank, (user_id, score) in enumerate(results, start=1):
-            rankings.append({
+            entry = {
                 "rank": rank,
                 "user_id": user_id,
                 "score": float(score),
-            })
+            }
+
+            # Fetch bid details
+            details_key = f"bid_details:{campaign_id}:{user_id}"
+            details = await self.redis.hgetall(details_key)
+            if details:
+                if "price" in details:
+                    entry["price"] = float(details["price"])
+                if "username" in details:
+                    entry["username"] = details["username"]
+
+            rankings.append(entry)
         return rankings
 
     async def get_user_rank(self, campaign_id: str, user_id: str) -> int | None:

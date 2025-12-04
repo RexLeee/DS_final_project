@@ -220,6 +220,7 @@ async def broadcast_ranking_update(
             rank=r["rank"],
             user_id=r["user_id"],
             score=r["score"],
+            price=r.get("price", 0),
             username=r.get("username"),
         )
         for r in top_k

@@ -12,6 +12,7 @@ class RankingEntry(BaseModel):
     rank: int
     user_id: str
     score: float
+    price: float
     username: str | None = None
 
 

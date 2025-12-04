@@ -11,6 +11,7 @@ from app.schemas.campaign import (
     CampaignDetailResponse,
     CampaignListResponse,
     CampaignResponse,
+    CampaignWithProductResponse,
 )
 from app.services.campaign_service import CampaignService
 from app.services.product_service import ProductService
@@ -32,9 +33,10 @@ async def list_campaigns(
     # Update status based on current time
     campaign_responses = []
     for campaign in campaigns:
-        response = CampaignResponse(
+        response = CampaignWithProductResponse(
             campaign_id=campaign.campaign_id,
             product_id=campaign.product_id,
+            product=campaign.product,
             start_time=campaign.start_time,
             end_time=campaign.end_time,
             alpha=campaign.alpha,

@@ -50,6 +50,7 @@ class CampaignService:
 
         result = await self.db.execute(
             select(Campaign)
+            .options(selectinload(Campaign.product))
             .order_by(Campaign.start_time.desc())
             .offset(skip)
             .limit(limit)

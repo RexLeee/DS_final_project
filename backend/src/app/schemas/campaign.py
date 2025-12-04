@@ -59,8 +59,25 @@ class CampaignDetailResponse(BaseModel):
     created_at: datetime
 
 
+class CampaignWithProductResponse(BaseModel):
+    """Schema for campaign response with product info."""
+
+    campaign_id: UUID
+    product_id: UUID
+    product: ProductResponse
+    start_time: datetime
+    end_time: datetime
+    alpha: Decimal
+    beta: Decimal
+    gamma: Decimal
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class CampaignListResponse(BaseModel):
     """Schema for campaign list response."""
 
-    campaigns: list[CampaignResponse]
+    campaigns: list[CampaignWithProductResponse]
     total: int

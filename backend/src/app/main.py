@@ -12,12 +12,14 @@ from app.core.database import get_db
 from app.core.redis import get_redis
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.services.redis_service import RedisService
+from app.services.settlement_service import SettlementService
 from app.services.ws_manager import broadcast_ranking_update, manager
 
 logger = logging.getLogger(__name__)
 
 # Background task control
 _ranking_broadcast_task: asyncio.Task | None = None
+_settlement_check_task: asyncio.Task | None = None
 
 
 async def ranking_broadcast_loop():
@@ -33,10 +35,12 @@ async def ranking_broadcast_loop():
 
                 for campaign_id in active_campaigns:
                     try:
-                        # Get campaign stock for min_winning_score calculation
-                        # For simplicity, we use a default K=10 here
-                        # In production, this should be fetched from cache or DB
-                        k = 10
+                        # Get campaign stock (K) from Redis cache
+                        cached_params = await redis_service.get_cached_campaign(campaign_id)
+                        if cached_params and "stock" in cached_params:
+                            k = int(cached_params["stock"])
+                        else:
+                            k = 10  # fallback default
 
                         # Get ranking data from Redis
                         top_k = await redis_service.get_top_k(campaign_id, k)
@@ -72,23 +76,73 @@ async def ranking_broadcast_loop():
             await asyncio.sleep(2)
 
 
+async def settlement_check_loop():
+    """Background task to check and settle ended campaigns every 10 seconds."""
+    while True:
+        try:
+            # Use async generator to get db session
+            async for db in get_db():
+                try:
+                    redis = await get_redis()
+                    redis_service = RedisService(redis)
+                    settlement_service = SettlementService(db, redis_service)
+
+                    # Get campaigns that need settlement
+                    campaigns_to_settle = await settlement_service.get_campaigns_to_settle()
+
+                    for campaign in campaigns_to_settle:
+                        try:
+                            logger.info(f"Starting settlement for campaign {campaign.campaign_id}")
+                            orders = await settlement_service.settle_campaign(campaign.campaign_id)
+                            logger.info(
+                                f"Settled campaign {campaign.campaign_id}, "
+                                f"created {len(orders)} orders"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Error settling campaign {campaign.campaign_id}: {e}"
+                            )
+                finally:
+                    # Session will be closed by the generator
+                    pass
+                break  # Only run once per iteration
+
+            await asyncio.sleep(10)  # Check every 10 seconds
+
+        except asyncio.CancelledError:
+            logger.info("Settlement check loop cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in settlement check loop: {e}")
+            await asyncio.sleep(10)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup and shutdown events."""
-    global _ranking_broadcast_task
+    global _ranking_broadcast_task, _settlement_check_task
 
     # Startup
-    logger.info("Starting ranking broadcast background task")
+    logger.info("Starting background tasks")
     _ranking_broadcast_task = asyncio.create_task(ranking_broadcast_loop())
+    _settlement_check_task = asyncio.create_task(settlement_check_loop())
 
     yield
 
     # Shutdown
+    logger.info("Stopping background tasks")
+
     if _ranking_broadcast_task:
-        logger.info("Stopping ranking broadcast background task")
         _ranking_broadcast_task.cancel()
         try:
             await _ranking_broadcast_task
+        except asyncio.CancelledError:
+            pass
+
+    if _settlement_check_task:
+        _settlement_check_task.cancel()
+        try:
+            await _settlement_check_task
         except asyncio.CancelledError:
             pass
 

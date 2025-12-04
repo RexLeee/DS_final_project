@@ -156,11 +156,13 @@ class BidService:
         await self.db.commit()
         await self.db.refresh(bid)
 
-        # Update Redis ranking
+        # Update Redis ranking with bid details
         await self.redis_service.update_ranking(
             str(campaign_id),
             str(user.user_id),
             score,
+            price=float(price),
+            username=user.username,
         )
 
         # Get user's current rank

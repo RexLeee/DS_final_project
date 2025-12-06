@@ -1,0 +1,36 @@
+# Backend Service (ClusterIP for internal access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: flash-sale
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+
+---
+# Frontend Service (ClusterIP for internal access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: flash-sale
+  labels:
+    app: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

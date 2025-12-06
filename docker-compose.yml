@@ -1,4 +1,7 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:15
     container_name: flash-sale-postgres
@@ -15,10 +18,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - flash-sale-network
 
+  # Redis Cache
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: flash-sale-redis
+    command: redis-server --appendonly yes
     ports:
       - "6379:6379"
     volumes:
@@ -28,7 +35,81 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - flash-sale-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: flash-sale-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/flash_sale
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      DEBUG: "false"
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:80","http://localhost","http://frontend:80"]'
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    networks:
+      - flash-sale-network
+    restart: unless-stopped
+
+  # Frontend Web Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: flash-sale-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    networks:
+      - flash-sale-network
+    restart: unless-stopped
+
+  # Database Migration (one-time job)
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: flash-sale-migrate
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/flash_sale
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - flash-sale-network
+    profiles:
+      - migration
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  flash-sale-network:
+    driver: bridge

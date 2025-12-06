@@ -1362,11 +1362,11 @@ frontend/
 > **注意**: 使用 **UV** 進行容器內的套件安裝，大幅加速構建速度
 
 **執行步驟**:
-- [ ] 建立 `backend/Dockerfile`
-- [ ] 使用多階段構建減小映像
-- [ ] 使用 UV 安裝依賴
-- [ ] 配置非 root 用戶執行
-- [ ] 測試本地構建
+- [x] 建立 `backend/Dockerfile`
+- [x] 使用多階段構建減小映像
+- [x] 使用 UV 安裝依賴
+- [x] 配置非 root 用戶執行
+- [x] 測試本地構建
 
 **Dockerfile 結構 (UV 官方推薦 - src-layout)**:
 ```dockerfile
@@ -1450,10 +1450,10 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 **驗收標準**:
-- [ ] `docker build` 成功
-- [ ] 映像大小 < 200MB
-- [ ] 容器可正常執行
-- [ ] 構建時間相比 pip 顯著減少
+- [x] `docker build` 成功
+- [x] 映像大小 < 200MB
+- [x] 容器可正常執行
+- [x] 構建時間相比 pip 顯著減少
 
 ---
 
@@ -1463,13 +1463,13 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 **目標**: 建立前端容器映像
 
 **執行步驟**:
-- [ ] 建立 `frontend/Dockerfile`
-- [ ] 使用 nginx 服務靜態檔案
-- [ ] 配置環境變數注入
+- [x] 建立 `frontend/Dockerfile`
+- [x] 使用 nginx 服務靜態檔案
+- [x] 配置環境變數注入
 
 **驗收標準**:
-- [ ] `docker build` 成功
-- [ ] nginx 正確服務前端
+- [x] `docker build` 成功
+- [x] nginx 正確服務前端
 
 ---
 
@@ -1479,15 +1479,15 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 **目標**: 配置完整的本地開發環境
 
 **執行步驟**:
-- [ ] 完善 `docker-compose.yml`
-- [ ] 配置所有服務 (backend, frontend, postgres, redis)
-- [ ] 配置網路與健康檢查
-- [ ] 配置 volume 持久化
+- [x] 完善 `docker-compose.yml`
+- [x] 配置所有服務 (backend, frontend, postgres, redis)
+- [x] 配置網路與健康檢查
+- [x] 配置 volume 持久化
 
 **驗收標準**:
-- [ ] `docker-compose up` 啟動所有服務
-- [ ] 服務間通訊正常
-- [ ] 資料持久化正常
+- [x] `docker-compose up` 啟動所有服務
+- [x] 服務間通訊正常
+- [x] 資料持久化正常
 
 ---
 
@@ -1497,11 +1497,11 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 **目標**: 建立 Kubernetes 部署配置
 
 **執行步驟**:
-- [ ] 建立 `k8s/deployment.yaml` (各服務)
-- [ ] 建立 `k8s/service.yaml`
-- [ ] 建立 `k8s/ingress.yaml`
-- [ ] 建立 `k8s/configmap.yaml`
-- [ ] 建立 `k8s/secrets.yaml`
+- [x] 建立 `k8s/deployment.yaml` (各服務)
+- [x] 建立 `k8s/service.yaml`
+- [x] 建立 `k8s/ingress.yaml`
+- [x] 建立 `k8s/configmap.yaml`
+- [x] 建立 `k8s/secrets.yaml`
 
 **部署資源**:
 | 服務 | Replicas | Resources |
@@ -1510,9 +1510,9 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 | frontend | 2 | 200m CPU, 256Mi |
 
 **驗收標準**:
-- [ ] YAML 語法正確
-- [ ] 服務可部署到 GKE
-- [ ] Ingress 正確路由
+- [x] YAML 語法正確
+- [x] 服務可部署到 GKE
+- [x] Ingress 正確路由
 
 ---
 
@@ -1522,9 +1522,9 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 **目標**: 配置水平自動擴展
 
 **執行步驟**:
-- [ ] 建立 `k8s/hpa.yaml`
-- [ ] 配置 CPU 閾值觸發 (70%)
-- [ ] 配置最小/最大 Pod 數量
+- [x] 建立 `k8s/hpa.yaml`
+- [x] 配置 CPU 閾值觸發 (70%)
+- [x] 配置最小/最大 Pod 數量
 
 **HPA 配置** (依據 technical_spec.md 第 7.2 節):
 ```yaml
@@ -1549,9 +1549,9 @@ spec:
 ```
 
 **驗收標準**:
-- [ ] CPU > 70% 觸發擴展
-- [ ] Pod 數量正確增減
-- [ ] 擴展後回應時間穩定
+- [x] CPU > 70% 觸發擴展
+- [x] Pod 數量正確增減
+- [x] 擴展後回應時間穩定
 
 ---
 
@@ -1561,11 +1561,11 @@ spec:
 **目標**: 配置 GCP 雲端服務
 
 **執行步驟**:
-- [ ] 建立 GKE 叢集
-- [ ] 配置 Cloud SQL (PostgreSQL)
-- [ ] 配置 Memorystore (Redis)
-- [ ] 配置 Cloud Load Balancing
-- [ ] 設定 Cloud Monitoring
+- [x] 建立 GKE 叢集
+- [x] 配置 Cloud SQL (PostgreSQL)
+- [x] 配置 Memorystore (Redis)
+- [x] 配置 Cloud Load Balancing
+- [x] 設定 Cloud Monitoring
 
 **GCP 資源**:
 | 服務 | 規格 |
@@ -1575,9 +1575,9 @@ spec:
 | Memorystore | 6GB Standard |
 
 **驗收標準**:
-- [ ] 所有 GCP 服務建立成功
-- [ ] 服務間連接正常
-- [ ] 監控指標可見
+- [x] 所有 GCP 服務建立成功
+- [x] 服務間連接正常
+- [x] 監控指標可見
 
 ---
 

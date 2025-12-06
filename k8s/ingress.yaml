@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flash-sale-ingress
+  namespace: flash-sale
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: flash-sale-ip
+    kubernetes.io/ingress.class: "gce"
+    # Uncomment for HTTPS redirect once you have a certificate
+    # kubernetes.io/ingress.allow-http: "false"
+    # For managed certificate (create ManagedCertificate resource first)
+    # networking.gke.io/managed-certificates: flash-sale-cert
+spec:
+  rules:
+    # Default rule for all hosts
+    - http:
+        paths:
+          # API routes - proxy to backend
+          - path: /api/*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # WebSocket routes - proxy to backend
+          - path: /ws/*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # Health check endpoint - backend
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # All other routes - serve frontend
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

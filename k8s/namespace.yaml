@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flash-sale
+  labels:
+    app: flash-sale
+    environment: production

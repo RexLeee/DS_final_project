@@ -92,3 +92,6 @@ k8s/secrets.yaml
 *.key
 credentials.json
 service-account.json
+
+# direnv (contains GCP project config)
+.envrc

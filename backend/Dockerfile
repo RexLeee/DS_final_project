@@ -22,6 +22,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Copy source code
 COPY ./src ./src
+COPY ./scripts ./scripts
 COPY ./alembic ./alembic
 COPY ./alembic.ini ./
 
@@ -50,6 +51,7 @@ COPY --from=builder /app/.venv /app/.venv
 
 # Copy application code
 COPY --from=builder /app/src ./src
+COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/alembic ./alembic
 COPY --from=builder /app/alembic.ini ./
 
@@ -66,5 +68,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Start application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start application with optimized settings for high concurrency
+# --workers 4: Multiple worker processes for better CPU utilization
+# --timeout-keep-alive 30: Keep connections alive to reduce EOF errors
+# --limit-concurrency 200: Limit concurrent requests per worker
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--timeout-keep-alive", "30", "--limit-concurrency", "200"]

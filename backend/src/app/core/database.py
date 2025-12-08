@@ -8,8 +8,10 @@ from app.core.config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
-    pool_size=20,
-    max_overflow=10,
+    # Optimized for Cloud SQL connection limits
+    # 5 pods × 4 workers × 5 connections = 100 total (within Cloud SQL limit)
+    pool_size=2,        # Base pool connections per worker
+    max_overflow=3,     # Additional connections (total: 5 per worker)
     pool_timeout=30,
     pool_recycle=1800,
 )

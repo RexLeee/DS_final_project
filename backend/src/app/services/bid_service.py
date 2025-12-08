@@ -1,10 +1,12 @@
 """Bid service for bidding operations."""
 
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.bid import Bid
@@ -87,7 +89,10 @@ class BidService:
         gamma: Decimal,
         campaign_start_time: datetime,
     ) -> tuple[Bid, int]:
-        """Create or update a bid.
+        """Create or update a bid using PostgreSQL UPSERT for atomic operations.
+
+        This eliminates race conditions by using INSERT ... ON CONFLICT UPDATE,
+        ensuring only one bid per (campaign_id, user_id) exists.
 
         Args:
             campaign_id: Campaign UUID
@@ -122,39 +127,33 @@ class BidService:
             gamma=gamma,
         )
 
-        # Check for existing bid
-        existing_bid_result = await self.db.execute(
-            select(Bid).where(
-                and_(
-                    Bid.campaign_id == campaign_id,
-                    Bid.user_id == user.user_id,
-                )
-            )
+        # Use PostgreSQL UPSERT (INSERT ... ON CONFLICT UPDATE)
+        # This is atomic and eliminates race conditions
+        stmt = pg_insert(Bid).values(
+            bid_id=uuid.uuid4(),
+            campaign_id=campaign_id,
+            user_id=user.user_id,
+            product_id=product_id,
+            price=price,
+            score=Decimal(str(score)),
+            time_elapsed_ms=time_elapsed_ms,
+            bid_number=1,
         )
-        existing_bid = existing_bid_result.scalar_one_or_none()
 
-        if existing_bid:
-            # Update existing bid
-            existing_bid.price = price
-            existing_bid.score = Decimal(str(score))
-            existing_bid.time_elapsed_ms = time_elapsed_ms
-            existing_bid.bid_number += 1
-            bid = existing_bid
-        else:
-            # Create new bid
-            bid = Bid(
-                campaign_id=campaign_id,
-                user_id=user.user_id,
-                product_id=product_id,
-                price=price,
-                score=Decimal(str(score)),
-                time_elapsed_ms=time_elapsed_ms,
-                bid_number=1,
-            )
-            self.db.add(bid)
+        # On conflict (campaign_id, user_id), update existing bid
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['campaign_id', 'user_id'],
+            set_={
+                'price': price,
+                'score': Decimal(str(score)),
+                'time_elapsed_ms': time_elapsed_ms,
+                'bid_number': Bid.bid_number + 1,
+            }
+        ).returning(Bid)
 
+        result = await self.db.execute(stmt)
+        bid = result.scalar_one()
         await self.db.commit()
-        await self.db.refresh(bid)
 
         # Update Redis ranking with bid details
         await self.redis_service.update_ranking(

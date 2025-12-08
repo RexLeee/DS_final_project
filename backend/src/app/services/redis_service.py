@@ -90,7 +90,7 @@ class RedisService:
         """Get top K ranked users for a campaign with bid details.
 
         Uses ZREVRANGE to get highest scores first.
-        Also fetches bid details (price, username) for each user.
+        Uses Redis Pipeline to batch fetch bid details (eliminates N+1 problem).
 
         Args:
             campaign_id: Campaign UUID string
@@ -103,17 +103,27 @@ class RedisService:
         # ZREVRANGE returns list of (member, score) tuples with withscores=True
         results = await self.redis.zrevrange(key, 0, k - 1, withscores=True)
 
+        if not results:
+            return []
+
+        # Use Pipeline to batch fetch all details (eliminates N+1 problem)
+        pipe = self.redis.pipeline()
+        for user_id, score in results:
+            details_key = f"bid_details:{campaign_id}:{user_id}"
+            pipe.hgetall(details_key)
+
+        details_results = await pipe.execute()
+
         rankings = []
-        for rank, (user_id, score) in enumerate(results, start=1):
+        for (rank, (user_id, score)), details in zip(
+            enumerate(results, start=1), details_results
+        ):
             entry = {
                 "rank": rank,
                 "user_id": user_id,
                 "score": float(score),
             }
 
-            # Fetch bid details
-            details_key = f"bid_details:{campaign_id}:{user_id}"
-            details = await self.redis.hgetall(details_key)
             if details:
                 if "price" in details:
                     entry["price"] = float(details["price"])
@@ -358,6 +368,91 @@ class RedisService:
         """
         key = f"campaign:{campaign_id}"
         return await self.redis.expire(key, ttl)
+
+
+    # ==================== User Cache Operations ====================
+
+    USER_CACHE_TTL = 30  # 30 seconds TTL for user cache
+
+    async def cache_user(self, user_id: str, user_data: dict[str, Any]) -> None:
+        """Cache user data in Redis Hash with short TTL.
+
+        Key pattern: user:{user_id}
+
+        Args:
+            user_id: User UUID string
+            user_data: User data dict (values will be converted to strings)
+        """
+        key = f"user:{user_id}"
+        # Convert all values to strings for Redis hash
+        string_data = {k: str(v) for k, v in user_data.items()}
+        pipe = self.redis.pipeline()
+        pipe.hset(key, mapping=string_data)
+        pipe.expire(key, self.USER_CACHE_TTL)
+        await pipe.execute()
+
+    async def get_cached_user(self, user_id: str) -> dict[str, str] | None:
+        """Get cached user data.
+
+        Args:
+            user_id: User UUID string
+
+        Returns:
+            User data dict or None if not cached
+        """
+        key = f"user:{user_id}"
+        data = await self.redis.hgetall(key)
+        return data if data else None
+
+    async def invalidate_user_cache(self, user_id: str) -> bool:
+        """Invalidate (delete) user cache.
+
+        Should be called when user status changes.
+
+        Args:
+            user_id: User UUID string
+
+        Returns:
+            True if cache was deleted, False if didn't exist
+        """
+        key = f"user:{user_id}"
+        result = await self.redis.delete(key)
+        return result > 0
+
+    # ==================== Campaign Stats Batch Operations ====================
+
+    async def get_campaign_stats_batch(
+        self, campaign_id: str, k: int
+    ) -> dict[str, Any]:
+        """Get all campaign stats in a single pipeline call.
+
+        Combines total participants, max score, and min winning score queries.
+
+        Args:
+            campaign_id: Campaign UUID string
+            k: Number of winning positions (stock)
+
+        Returns:
+            Dict with total_participants, max_score, min_winning_score
+        """
+        key = f"bid:{campaign_id}"
+
+        pipe = self.redis.pipeline()
+        pipe.zcard(key)  # total participants
+        pipe.zrevrange(key, 0, 0, withscores=True)  # max score (rank 1)
+        pipe.zrevrange(key, k - 1, k - 1, withscores=True)  # Kth score (min winning)
+
+        results = await pipe.execute()
+
+        total = results[0]
+        max_score = float(results[1][0][1]) if results[1] else None
+        min_winning = float(results[2][0][1]) if results[2] else None
+
+        return {
+            "total_participants": total,
+            "max_score": max_score,
+            "min_winning_score": min_winning,
+        }
 
 
 # Dependency injection helper

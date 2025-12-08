@@ -1,5 +1,6 @@
-"""Rate limiting middleware using Redis Token Bucket algorithm."""
+"""Rate limiting middleware using Redis with Lua script optimization."""
 
+import random
 import time
 from typing import Callable
 
@@ -11,17 +12,58 @@ from app.core.redis import get_redis
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Rate limiting middleware using Redis.
+    """Rate limiting middleware using Redis with atomic Lua script.
 
     Rate limits (from technical_spec.md Section 3.2):
     - User level: 10 req/s (for authenticated requests)
     - IP level: 100 req/s (for all requests)
+
+    Optimized with Lua script to reduce 4+ Redis operations to 1 atomic call.
+    """
+
+    # Lua script for atomic rate limit check (replaces 4+ Redis operations with 1)
+    RATE_LIMIT_SCRIPT = """
+    local key = KEYS[1]
+    local now = tonumber(ARGV[1])
+    local window = tonumber(ARGV[2])
+    local limit = tonumber(ARGV[3])
+    local request_id = ARGV[4]
+    local window_start = now - window
+
+    -- Remove old entries outside the window
+    redis.call('ZREMRANGEBYSCORE', key, 0, window_start)
+
+    -- Count current requests in window
+    local count = redis.call('ZCARD', key)
+
+    if count < limit then
+        -- Add new request with unique ID to prevent collisions
+        redis.call('ZADD', key, now, request_id)
+        redis.call('EXPIRE', key, window + 1)
+        return {1, 0}  -- allowed, retry_after=0
+    else
+        -- Get oldest entry for retry-after calculation
+        local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+        local retry_after = 1
+        if oldest and #oldest >= 2 then
+            retry_after = math.ceil(oldest[2] + window - now) + 1
+            if retry_after < 1 then retry_after = 1 end
+        end
+        return {0, retry_after}  -- not allowed, retry_after
+    end
     """
 
     def __init__(self, app, user_limit: int = 10, ip_limit: int = 100):
         super().__init__(app)
         self.user_limit = user_limit  # 10 req/s per user
         self.ip_limit = ip_limit      # 100 req/s per IP
+        self._rate_limit_script = None
+
+    async def _get_rate_limit_script(self, redis):
+        """Get or register the rate limit Lua script."""
+        if self._rate_limit_script is None:
+            self._rate_limit_script = redis.register_script(self.RATE_LIMIT_SCRIPT)
+        return self._rate_limit_script
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with rate limiting."""
@@ -36,7 +78,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check IP rate limit
         ip_key = f"ratelimit:ip:{client_ip}"
-        ip_allowed, ip_retry_after = await self._check_rate_limit(
+        ip_allowed, ip_retry_after = await self._check_rate_limit_lua(
             redis, ip_key, self.ip_limit
         )
 
@@ -55,7 +97,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             token = auth_header[7:]
             user_key = f"ratelimit:user:{hash(token) % 10000000}"
 
-            user_allowed, user_retry_after = await self._check_rate_limit(
+            user_allowed, user_retry_after = await self._check_rate_limit_lua(
                 redis, user_key, self.user_limit
             )
 
@@ -68,10 +110,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return await call_next(request)
 
-    async def _check_rate_limit(
+    async def _check_rate_limit_lua(
         self, redis, key: str, limit: int, window: int = 1
     ) -> tuple[bool, int]:
-        """Check rate limit using sliding window counter.
+        """Check rate limit using atomic Lua script.
+
+        Combines all rate limit operations into a single atomic Redis call:
+        1. Remove expired entries
+        2. Count current entries
+        3. Add new entry (if allowed)
+        4. Set TTL
 
         Args:
             redis: Redis client
@@ -83,34 +131,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             Tuple of (allowed, retry_after_seconds)
         """
         now = time.time()
-        window_start = now - window
+        # Generate unique request ID to prevent score collisions
+        request_id = f"{now}:{random.randint(0, 999999)}"
 
-        # Use Redis pipeline for atomic operations
-        pipe = redis.pipeline()
+        script = await self._get_rate_limit_script(redis)
+        result = await script(
+            keys=[key],
+            args=[now, window, limit, request_id],
+        )
 
-        # Remove old entries outside the window
-        pipe.zremrangebyscore(key, 0, window_start)
+        allowed = bool(result[0])
+        retry_after = int(result[1])
 
-        # Count current requests in window
-        pipe.zcard(key)
-
-        # Add current request
-        pipe.zadd(key, {str(now): now})
-
-        # Set expiry on the key
-        pipe.expire(key, window + 1)
-
-        results = await pipe.execute()
-        current_count = results[1]
-
-        if current_count >= limit:
-            # Calculate retry after
-            oldest_result = await redis.zrange(key, 0, 0, withscores=True)
-            if oldest_result:
-                oldest_time = oldest_result[0][1]
-                retry_after = int(oldest_time + window - now) + 1
-            else:
-                retry_after = 1
-            return False, max(1, retry_after)
-
-        return True, 0
+        return allowed, retry_after

@@ -73,6 +73,7 @@ class Bid(Base):
 
     __table_args__ = (
         CheckConstraint("price > 0", name="chk_bid_price_positive"),
-        Index("idx_bids_campaign_user", "campaign_id", "user_id"),
+        # Unique constraint enables PostgreSQL UPSERT for atomic operations
+        Index("idx_bids_campaign_user", "campaign_id", "user_id", unique=True),
         Index("idx_bids_campaign_score", "campaign_id", "score"),
     )

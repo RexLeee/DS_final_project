@@ -102,6 +102,9 @@ create_vpc() {
             --service=servicenetworking.googleapis.com \
             --ranges=google-managed-services-flash-sale \
             --network=$VPC_NAME
+
+        echo_info "Waiting for VPC peering to be fully established..."
+        sleep 60
     fi
 }
 
@@ -114,18 +117,44 @@ create_cloud_sql() {
     if gcloud sql instances describe $SQL_INSTANCE &>/dev/null; then
         echo_warn "Cloud SQL instance already exists, skipping..."
     else
-        # Optimized for 1000 VU load testing
-        # 2 vCPU, 4GB RAM to handle high concurrent connections
-        gcloud sql instances create $SQL_INSTANCE \
-            --database-version=POSTGRES_15 \
-            --tier=db-custom-2-4096 \
-            --region=$REGION \
-            --network=$VPC_NAME \
-            --no-assign-ip \
-            --storage-size=10GB \
-            --storage-type=SSD \
-            --no-storage-auto-increase \
-            --availability-type=ZONAL
+        # Retry mechanism for Cloud SQL creation
+        # VPC peering may still be propagating, so we retry on failure
+        MAX_RETRIES=3
+        RETRY_COUNT=0
+        SUCCESS=false
+
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo_info "Attempt $RETRY_COUNT of $MAX_RETRIES to create Cloud SQL..."
+
+            # Optimized for 1000 VU load testing
+            # 2 vCPU, 4GB RAM to handle high concurrent connections
+            if gcloud sql instances create $SQL_INSTANCE \
+                --database-version=POSTGRES_15 \
+                --tier=db-custom-2-4096 \
+                --region=$REGION \
+                --network=$VPC_NAME \
+                --no-assign-ip \
+                --storage-size=10GB \
+                --storage-type=SSD \
+                --no-storage-auto-increase \
+                --availability-type=ZONAL; then
+                echo_info "Cloud SQL instance created successfully!"
+                SUCCESS=true
+                break
+            else
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                    echo_warn "Cloud SQL creation failed. Waiting 60 seconds before retry..."
+                    sleep 60
+                fi
+            fi
+        done
+
+        if [ "$SUCCESS" = false ]; then
+            echo_error "Cloud SQL creation failed after $MAX_RETRIES attempts."
+            echo_error "Please check VPC peering status and try again."
+            return 1
+        fi
 
         echo_info "Setting database password..."
         echo_warn "Please set a secure password for the postgres user:"
@@ -228,6 +257,13 @@ build_and_push_images() {
         --push \
         ${PROJECT_ROOT}/frontend
 
+    # Pull and push PgBouncer image (edoburu/pgbouncer) for GKE
+    # This avoids Docker Hub rate limits and ensures correct architecture
+    echo_info "Pulling and pushing PgBouncer image (linux/amd64)..."
+    docker pull --platform linux/amd64 edoburu/pgbouncer:latest
+    docker tag edoburu/pgbouncer:latest ${REGISTRY}/pgbouncer:latest
+    docker push ${REGISTRY}/pgbouncer:latest
+
     echo_info "Verifying images..."
     gcloud artifacts docker images list ${REGISTRY}
 }
@@ -261,7 +297,8 @@ deploy_to_gke() {
     echo_info "Generated JWT secret"
 
     # Generate secrets.yaml with actual values
-    echo_info "Generating secrets.yaml with actual values..."
+    # Backend connects to PgBouncer (pgbouncer:5432), NOT directly to Cloud SQL
+    echo_info "Generating secrets.yaml (backend -> PgBouncer -> Cloud SQL)..."
     cat > ${K8S_DIR}/secrets.yaml << EOF
 apiVersion: v1
 kind: Secret
@@ -270,15 +307,154 @@ metadata:
   namespace: flash-sale
 type: Opaque
 stringData:
-  DATABASE_URL: "postgresql+asyncpg://postgres:${DB_PASSWORD}@${CLOUD_SQL_IP}:5432/flash_sale"
+  # DATABASE_URL points to PgBouncer service for connection pooling
+  # PgBouncer multiplexes connections to Cloud SQL, enabling higher concurrency
+  # Direct Cloud SQL: postgresql+asyncpg://postgres:${DB_PASSWORD}@${CLOUD_SQL_IP}:5432/flash_sale
+  DATABASE_URL: "postgresql+asyncpg://postgres:${DB_PASSWORD}@pgbouncer:5432/flash_sale"
   JWT_SECRET_KEY: "${JWT_SECRET}"
   REDIS_URL: "redis://${REDIS_IP}:6379/0"
+EOF
+
+    # Generate pgbouncer-deployment.yaml with actual Cloud SQL IP
+    echo_info "Generating pgbouncer-deployment.yaml..."
+    cat > ${K8S_DIR}/pgbouncer-deployment.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: flash-sale
+  labels:
+    app: pgbouncer
+    tier: database-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pgbouncer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+        tier: database-proxy
+    spec:
+      containers:
+        - name: pgbouncer
+          image: ${REGISTRY}/pgbouncer:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              value: "${CLOUD_SQL_IP}"
+            - name: DB_USER
+              value: "postgres"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pgbouncer-secrets
+                  key: postgresql-password
+            - name: DB_NAME
+              value: "flash_sale"
+            - name: POOL_MODE
+              value: "transaction"
+            - name: MAX_CLIENT_CONN
+              value: "500"
+            - name: DEFAULT_POOL_SIZE
+              value: "25"
+            - name: MIN_POOL_SIZE
+              value: "5"
+            - name: RESERVE_POOL_SIZE
+              value: "10"
+            - name: MAX_DB_CONNECTIONS
+              value: "100"
+            - name: QUERY_TIMEOUT
+              value: "30"
+            - name: CLIENT_IDLE_TIMEOUT
+              value: "300"
+            - name: SERVER_IDLE_TIMEOUT
+              value: "60"
+            - name: IGNORE_STARTUP_PARAMETERS
+              value: "extra_float_digits"
+            - name: AUTH_TYPE
+              value: "scram-sha-256"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          livenessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "kill -SIGINT 1 && sleep 120"]
+          securityContext:
+            allowPrivilegeEscalation: false
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: pgbouncer
+                topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 130
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: flash-sale
+  labels:
+    app: pgbouncer
+spec:
+  type: ClusterIP
+  selector:
+    app: pgbouncer
+  ports:
+    - name: pgbouncer
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgbouncer-secrets
+  namespace: flash-sale
+type: Opaque
+stringData:
+  postgresql-password: "${DB_PASSWORD}"
 EOF
 
     echo_info "Applying Kubernetes manifests..."
     kubectl apply -f ${K8S_DIR}/namespace.yaml
     kubectl apply -f ${K8S_DIR}/configmap.yaml
     kubectl apply -f ${K8S_DIR}/secrets.yaml
+    kubectl apply -f ${K8S_DIR}/pgbouncer-deployment.yaml
     kubectl apply -f ${K8S_DIR}/backend-deployment.yaml
     kubectl apply -f ${K8S_DIR}/frontend-deployment.yaml
     kubectl apply -f ${K8S_DIR}/services.yaml
@@ -286,6 +462,7 @@ EOF
     kubectl apply -f ${K8S_DIR}/hpa.yaml
 
     echo_info "Waiting for deployments to be ready..."
+    kubectl rollout status deployment/pgbouncer -n flash-sale --timeout=300s
     kubectl rollout status deployment/backend -n flash-sale --timeout=300s
     kubectl rollout status deployment/frontend -n flash-sale --timeout=300s
 }

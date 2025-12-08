@@ -11,6 +11,12 @@ metadata:
     # For managed certificate (create ManagedCertificate resource first)
     # networking.gke.io/managed-certificates: flash-sale-cert
 spec:
+  # Default backend for root path and unmatched routes
+  defaultBackend:
+    service:
+      name: frontend
+      port:
+        number: 80
   rules:
     # Default rule for all hosts
     - http:

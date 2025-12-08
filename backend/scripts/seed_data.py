@@ -6,11 +6,16 @@ Creates:
 - 1 active campaign with configurable duration
 
 Environment Variables:
-    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 10)
+    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 30)
+    RESET_DATA: Set to "true" to clear bids/orders/campaigns before seeding (default: false)
+    LOAD_TEST_STOCK: Stock quantity for load testing (default: 100)
 
 Usage:
+    # First time setup
     uv run python -m scripts.seed_data
-    CAMPAIGN_DURATION_MINUTES=15 uv run python -m scripts.seed_data
+
+    # Reset for load testing (clears bids/orders/campaigns, creates new campaign)
+    RESET_DATA=true CAMPAIGN_DURATION_MINUTES=30 uv run python -m scripts.seed_data
 """
 
 import asyncio
@@ -19,10 +24,12 @@ import random
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-# Campaign duration from environment variable (default: 10 minutes)
-CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "10"))
+# Configuration from environment variables
+CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "30"))
+RESET_DATA = os.getenv("RESET_DATA", "false").lower() == "true"
+LOAD_TEST_STOCK = int(os.getenv("LOAD_TEST_STOCK", "100"))
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_maker, engine
@@ -30,6 +37,21 @@ from app.core.redis import get_redis
 from app.core.security import get_password_hash
 from app.models import Campaign, Product, User
 from app.services.redis_service import RedisService
+
+
+async def reset_campaign_data(session: AsyncSession) -> None:
+    """Clear orders, bids, and campaigns for a fresh load test."""
+    print("Resetting campaign data...")
+    await session.execute(text("DELETE FROM orders"))
+    await session.execute(text("DELETE FROM bids"))
+    await session.execute(text("DELETE FROM campaigns"))
+    # Reset first product stock for load testing
+    await session.execute(
+        text(f"UPDATE products SET stock = {LOAD_TEST_STOCK} WHERE name LIKE '%Air Max%'")
+    )
+    await session.commit()
+    print(f"  Cleared orders, bids, campaigns")
+    print(f"  Reset Air Max stock to {LOAD_TEST_STOCK}")
 
 
 async def seed_users(session: AsyncSession) -> list[User]:
@@ -163,18 +185,19 @@ async def seed_campaign(session: AsyncSession, product: Product) -> Campaign:
     """Create 1 active campaign with the first product.
 
     Campaign settings:
-    - Duration: CAMPAIGN_DURATION_MINUTES (default 10) from now
-    - Stock (K): 10 (from product)
+    - Duration: CAMPAIGN_DURATION_MINUTES (default 30) from now
+    - Stock (K): from product (default 100 for load testing)
     - alpha: 1.0, beta: 1000.0, gamma: 100.0
     """
     print("Seeding campaign...")
 
-    # Check if campaign already exists
-    result = await session.execute(select(Campaign).limit(1))
-    if result.scalar_one_or_none():
-        print("  Campaign already exists, skipping...")
+    # Check if campaign already exists (skip check if RESET_DATA is true)
+    if not RESET_DATA:
         result = await session.execute(select(Campaign).limit(1))
-        return result.scalar_one()
+        if result.scalar_one_or_none():
+            print("  Campaign already exists, skipping...")
+            result = await session.execute(select(Campaign).limit(1))
+            return result.scalar_one()
 
     now = datetime.utcnow()
     campaign = Campaign(
@@ -242,14 +265,26 @@ async def main():
     print("=" * 60)
     print("Flash Sale System - Seed Data Script")
     print("=" * 60)
+    print(f"  RESET_DATA: {RESET_DATA}")
+    print(f"  CAMPAIGN_DURATION_MINUTES: {CAMPAIGN_DURATION_MINUTES}")
+    print(f"  LOAD_TEST_STOCK: {LOAD_TEST_STOCK}")
+    print("=" * 60)
 
     # Initialize database session
     async with async_session_maker() as session:
+        # Reset data if requested (for load testing)
+        if RESET_DATA:
+            await reset_campaign_data(session)
+
         # Seed data in order
         users = await seed_users(session)
         products = await seed_products(session)
 
-        # Create campaign with first product (stock=10)
+        # Refresh product to get updated stock if reset
+        if RESET_DATA:
+            await session.refresh(products[0])
+
+        # Create campaign with first product
         campaign = await seed_campaign(session, products[0])
 
     # Initialize Redis
@@ -276,6 +311,15 @@ async def main():
     print(f"  Users: {len(users)}")
     print(f"  Products: {len(products)}")
     print(f"  Active Campaign: {campaign.campaign_id}")
+    print(f"  Campaign End Time: {campaign.end_time}")
+    print("=" * 60)
+    print("")
+    print("To run 1000 VU load test, use:")
+    print(f"  cd k6-tests && k6 run \\")
+    print(f"    -e BASE_URL=http://34.49.66.36 \\")
+    print(f"    -e CAMPAIGN_ID={campaign.campaign_id} \\")
+    print(f"    -e USER_POOL_SIZE=1000 \\")
+    print(f"    high-concurrency.js")
     print("=" * 60)
 
     # Cleanup

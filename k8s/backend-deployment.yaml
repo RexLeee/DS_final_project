@@ -37,13 +37,14 @@ spec:
                 name: flash-sale-secrets
           # Optimized for 1000 VU load testing with 4 uvicorn workers
           # Higher resources to handle concurrent requests
+          # Increased limits to support PgBouncer-enabled scaling (maxReplicas=15)
           resources:
             requests:
-              cpu: "300m"
+              cpu: "500m"
               memory: "512Mi"
             limits:
-              cpu: "600m"
-              memory: "768Mi"
+              cpu: "1000m"
+              memory: "1024Mi"
           livenessProbe:
             httpGet:
               path: /health

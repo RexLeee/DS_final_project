@@ -14,7 +14,7 @@ spec:
     kind: Deployment
     name: backend
   minReplicas: 3        # Higher baseline for demo readiness
-  maxReplicas: 15       # Increased! PgBouncer removes DB connection limit
+  maxReplicas: 20       # Increased to match PgBouncer capacity (3 pods × 800 connections)
   metrics:
     - type: Resource
       resource:

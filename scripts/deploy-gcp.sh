@@ -315,140 +315,15 @@ stringData:
   REDIS_URL: "redis://${REDIS_IP}:6379/0"
 EOF
 
-    # Generate pgbouncer-deployment.yaml with actual Cloud SQL IP
-    echo_info "Generating pgbouncer-deployment.yaml..."
-    cat > ${K8S_DIR}/pgbouncer-deployment.yaml << EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pgbouncer
-  namespace: flash-sale
-  labels:
-    app: pgbouncer
-    tier: database-proxy
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: pgbouncer
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-  template:
-    metadata:
-      labels:
-        app: pgbouncer
-        tier: database-proxy
-    spec:
-      containers:
-        - name: pgbouncer
-          image: ${REGISTRY}/pgbouncer:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 5432
-              protocol: TCP
-          env:
-            - name: DB_HOST
-              value: "${CLOUD_SQL_IP}"
-            - name: DB_USER
-              value: "postgres"
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: pgbouncer-secrets
-                  key: postgresql-password
-            - name: DB_NAME
-              value: "flash_sale"
-            - name: POOL_MODE
-              value: "transaction"
-            - name: MAX_CLIENT_CONN
-              value: "500"
-            - name: DEFAULT_POOL_SIZE
-              value: "25"
-            - name: MIN_POOL_SIZE
-              value: "5"
-            - name: RESERVE_POOL_SIZE
-              value: "10"
-            - name: MAX_DB_CONNECTIONS
-              value: "100"
-            - name: QUERY_TIMEOUT
-              value: "30"
-            - name: CLIENT_IDLE_TIMEOUT
-              value: "300"
-            - name: SERVER_IDLE_TIMEOUT
-              value: "60"
-            - name: IGNORE_STARTUP_PARAMETERS
-              value: "extra_float_digits"
-            - name: AUTH_TYPE
-              value: "scram-sha-256"
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "300m"
-              memory: "256Mi"
-          livenessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            tcpSocket:
-              port: 5432
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
-          lifecycle:
-            preStop:
-              exec:
-                command: ["/bin/sh", "-c", "kill -SIGINT 1 && sleep 120"]
-          securityContext:
-            allowPrivilegeEscalation: false
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: pgbouncer
-                topologyKey: kubernetes.io/hostname
-      terminationGracePeriodSeconds: 130
+    # Update pgbouncer-deployment.yaml with actual Cloud SQL IP (preserve yaml file settings)
+    echo_info "Updating pgbouncer-deployment.yaml with Cloud SQL IP..."
+    sed -i.bak "s|value: \"10\.71\.0\.[0-9]*\"|value: \"${CLOUD_SQL_IP}\"|g" ${K8S_DIR}/pgbouncer-deployment.yaml
+    rm -f ${K8S_DIR}/pgbouncer-deployment.yaml.bak
 
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: pgbouncer
-  namespace: flash-sale
-  labels:
-    app: pgbouncer
-spec:
-  type: ClusterIP
-  selector:
-    app: pgbouncer
-  ports:
-    - name: pgbouncer
-      port: 5432
-      targetPort: 5432
-      protocol: TCP
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: pgbouncer-secrets
-  namespace: flash-sale
-type: Opaque
-stringData:
-  postgresql-password: "${DB_PASSWORD}"
-EOF
+    # Update pgbouncer-secrets with database password
+    echo_info "Updating pgbouncer-secrets..."
+    sed -i.bak "s|postgresql-password: \".*\"|postgresql-password: \"${DB_PASSWORD}\"|g" ${K8S_DIR}/pgbouncer-deployment.yaml
+    rm -f ${K8S_DIR}/pgbouncer-deployment.yaml.bak
 
     echo_info "Applying Kubernetes manifests..."
     kubectl apply -f ${K8S_DIR}/namespace.yaml

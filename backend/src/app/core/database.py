@@ -10,9 +10,9 @@ engine = create_async_engine(
     echo=settings.DEBUG,
     # Optimized for high concurrency with PgBouncer
     # PgBouncer handles connection multiplexing, allowing more app-level connections
-    pool_size=5,           # Increased from 2 for better concurrency
-    max_overflow=10,       # Increased from 3 for burst traffic
-    pool_timeout=10,       # Reduced from 30 for fail-fast behavior
+    pool_size=8,           # Increased for 1000 VU load testing
+    max_overflow=15,       # More burst capacity for flash sale peaks
+    pool_timeout=5,        # Fail-fast: reduced from 10s to prevent request queuing
     pool_recycle=300,      # Reduced from 1800 to prevent stale connections
     pool_pre_ping=True,    # Verify connection health before use
     # PgBouncer transaction mode requires disabling prepared statement cache

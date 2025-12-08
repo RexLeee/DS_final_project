@@ -155,7 +155,9 @@ app = FastAPI(
 )
 
 # Rate Limiting Middleware (must be before CORS)
-app.add_middleware(RateLimitMiddleware, user_limit=10, ip_limit=100)
+# Load testing config: user_limit=100, ip_limit=10000 (supports 1000 VUs from k6)
+# Production recommendation: user_limit=10, ip_limit=100
+app.add_middleware(RateLimitMiddleware, user_limit=100, ip_limit=10000)
 
 # CORS Middleware
 app.add_middleware(

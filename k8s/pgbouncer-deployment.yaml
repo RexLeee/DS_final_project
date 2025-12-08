@@ -7,7 +7,7 @@ metadata:
     app: pgbouncer
     tier: database-proxy
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: pgbouncer
@@ -44,15 +44,15 @@ spec:
             - name: POOL_MODE
               value: "transaction"
             - name: MAX_CLIENT_CONN
-              value: "500"
+              value: "800"
             - name: DEFAULT_POOL_SIZE
-              value: "25"
+              value: "30"
             - name: MIN_POOL_SIZE
-              value: "5"
-            - name: RESERVE_POOL_SIZE
               value: "10"
+            - name: RESERVE_POOL_SIZE
+              value: "15"
             - name: MAX_DB_CONNECTIONS
-              value: "100"
+              value: "150"
             - name: QUERY_TIMEOUT
               value: "30"
             - name: CLIENT_IDLE_TIMEOUT

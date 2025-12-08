@@ -169,13 +169,14 @@ class SettlementService:
         Returns:
             List of campaigns that have ended but not settled
         """
-        now = datetime.now(timezone.utc)
+        # Use naive datetime to match DB storage format (TIMESTAMP WITHOUT TIME ZONE)
+        now_naive = datetime.utcnow()
 
         result = await self.db.execute(
             select(Campaign).where(
                 and_(
                     Campaign.status != "ended",
-                    Campaign.end_time < now,
+                    Campaign.end_time < now_naive,
                 )
             )
         )

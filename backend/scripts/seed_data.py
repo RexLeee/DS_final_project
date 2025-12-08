@@ -1,18 +1,26 @@
 """Seed data script for development and testing.
 
 Creates:
-- 100 test users with random weights (0.5-5.0)
+- 1 admin + 1000 test users with random weights (0.5-5.0)
 - 5 test products with varying stock
-- 1 active campaign with 10-minute duration
+- 1 active campaign with configurable duration
+
+Environment Variables:
+    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 10)
 
 Usage:
     uv run python -m scripts.seed_data
+    CAMPAIGN_DURATION_MINUTES=15 uv run python -m scripts.seed_data
 """
 
 import asyncio
+import os
 import random
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+# Campaign duration from environment variable (default: 10 minutes)
+CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "10"))
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,11 +33,11 @@ from app.services.redis_service import RedisService
 
 
 async def seed_users(session: AsyncSession) -> list[User]:
-    """Create 1 admin + 100 test users with random weights.
+    """Create 1 admin + 1000 test users with random weights.
 
     Users:
     - Admin: admin@test.com / admin123 (is_admin=True)
-    - Email: user001@test.com to user100@test.com
+    - Email: user0001@test.com to user1000@test.com
     - Password: password123 (bcrypt hashed)
     - Weight: Random between 0.5 and 5.0
     """
@@ -56,15 +64,15 @@ async def seed_users(session: AsyncSession) -> list[User]:
     users.append(admin)
     print("  Created admin: admin@test.com / admin123")
 
-    # Create 100 test users
+    # Create 1000 test users for load testing (1000 VU requirement)
     password_hash = get_password_hash("password123")
 
-    for i in range(1, 101):
+    for i in range(1, 1001):
         weight = round(random.uniform(0.5, 5.0), 2)
         user = User(
-            email=f"user{i:03d}@test.com",
+            email=f"user{i:04d}@test.com",
             password_hash=password_hash,
-            username=f"user{i:03d}",
+            username=f"user{i:04d}",
             weight=Decimal(str(weight)),
             status="active",
         )
@@ -155,7 +163,7 @@ async def seed_campaign(session: AsyncSession, product: Product) -> Campaign:
     """Create 1 active campaign with the first product.
 
     Campaign settings:
-    - Duration: 10 minutes from now
+    - Duration: CAMPAIGN_DURATION_MINUTES (default 10) from now
     - Stock (K): 10 (from product)
     - alpha: 1.0, beta: 1000.0, gamma: 100.0
     """
@@ -172,7 +180,7 @@ async def seed_campaign(session: AsyncSession, product: Product) -> Campaign:
     campaign = Campaign(
         product_id=product.product_id,
         start_time=now,
-        end_time=now + timedelta(minutes=10),
+        end_time=now + timedelta(minutes=CAMPAIGN_DURATION_MINUTES),
         alpha=Decimal("1.0000"),
         beta=Decimal("1000.0000"),
         gamma=Decimal("100.0000"),
@@ -185,7 +193,9 @@ async def seed_campaign(session: AsyncSession, product: Product) -> Campaign:
 
     print(f"  Created campaign: {campaign.campaign_id}")
     print(f"    Product: {product.name}")
-    print(f"    Duration: {campaign.start_time} to {campaign.end_time}")
+    print(f"    Duration: {CAMPAIGN_DURATION_MINUTES} minutes")
+    print(f"    Start: {campaign.start_time}")
+    print(f"    End: {campaign.end_time}")
     print(f"    Parameters: alpha={campaign.alpha}, beta={campaign.beta}, gamma={campaign.gamma}")
 
     return campaign

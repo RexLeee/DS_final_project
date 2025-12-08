@@ -48,15 +48,38 @@ class BidService:
         self.db = db
         self.redis_service = redis_service
 
-    async def get_campaign_with_validation(self, campaign_id: UUID) -> tuple[Campaign | None, str | None]:
+    async def get_campaign_with_validation(
+        self, campaign_id: UUID
+    ) -> tuple[dict | Campaign | None, str | None]:
         """Get campaign and validate it can be bid on.
+
+        Uses Redis cache first for performance, falls back to DB on cache miss.
+        Returns cached dict if from Redis, Campaign object if from DB.
 
         Args:
             campaign_id: Campaign UUID
 
         Returns:
-            Tuple of (campaign, error_code) - error_code is None if valid
+            Tuple of (campaign_data, error_code) - error_code is None if valid
+            campaign_data is either a dict (from Redis) or Campaign object (from DB)
         """
+        # Try Redis cache first for performance
+        cached = await self.redis_service.get_cached_campaign(str(campaign_id))
+
+        if cached:
+            # Validate using cached times
+            now = datetime.now(timezone.utc)
+            start = datetime.fromisoformat(cached["start_time"]).replace(tzinfo=timezone.utc)
+            end = datetime.fromisoformat(cached["end_time"]).replace(tzinfo=timezone.utc)
+
+            if now < start:
+                return cached, "CAMPAIGN_NOT_STARTED"
+            if now >= end:
+                return cached, "CAMPAIGN_ENDED"
+
+            return cached, None
+
+        # Fall back to DB on cache miss
         result = await self.db.execute(
             select(Campaign).where(Campaign.campaign_id == campaign_id)
         )

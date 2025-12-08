@@ -1,8 +1,8 @@
 # Backend HPA - Optimized for 1000 VU load testing with PgBouncer
 # PgBouncer enables higher maxReplicas by multiplexing DB connections
 # Connection formula (with PgBouncer):
-#   App side: maxReplicas × workers × pool_size = 15 × 4 × 5 = 300 app connections
-#   DB side: PgBouncer max_db_connections = 100 (actual Cloud SQL connections)
+#   App side: maxReplicas × workers × pool_size = 20 × 4 × 8 = 640 app connections
+#   DB side: PgBouncer 5 pods × 30 max_db_connections = 150 (matches Cloud SQL limit)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

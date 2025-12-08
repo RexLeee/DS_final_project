@@ -1,6 +1,7 @@
 """Bidding API endpoints."""
 
 import asyncio
+from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -29,8 +30,8 @@ async def submit_bid(
     redis_service = RedisService(redis_client)
     bid_service = BidService(db, redis_service)
 
-    # Validate campaign
-    campaign, error_code = await bid_service.get_campaign_with_validation(bid_data.campaign_id)
+    # Validate campaign (uses Redis cache first, returns cached dict or Campaign object)
+    campaign_data, error_code = await bid_service.get_campaign_with_validation(bid_data.campaign_id)
 
     if error_code == "CAMPAIGN_NOT_FOUND":
         raise HTTPException(
@@ -48,17 +49,17 @@ async def submit_bid(
             detail={"code": "CAMPAIGN_ENDED", "message": "Campaign has ended"},
         )
 
-    # Get campaign params (try Redis cache first, fall back to DB)
-    cached_params = await redis_service.get_cached_campaign(str(bid_data.campaign_id))
-
-    if cached_params:
-        alpha = Decimal(cached_params["alpha"])
-        beta = Decimal(cached_params["beta"])
-        gamma = Decimal(cached_params["gamma"])
-        min_price = Decimal(cached_params["min_price"])
-        product_id = UUID(cached_params["product_id"])
+    # Extract campaign params from validation result (dict from Redis or Campaign object from DB)
+    if isinstance(campaign_data, dict):
+        # From Redis cache - already validated, use cached params directly
+        alpha = Decimal(campaign_data["alpha"])
+        beta = Decimal(campaign_data["beta"])
+        gamma = Decimal(campaign_data["gamma"])
+        min_price = Decimal(campaign_data["min_price"])
+        product_id = UUID(campaign_data["product_id"])
+        campaign_start_time = datetime.fromisoformat(campaign_data["start_time"])
     else:
-        # Load from database with product
+        # From DB - need to load product for min_price
         from sqlalchemy import select
         result = await db.execute(
             select(Campaign)
@@ -71,6 +72,7 @@ async def submit_bid(
         gamma = campaign_with_product.gamma
         min_price = campaign_with_product.product.min_price
         product_id = campaign_with_product.product_id
+        campaign_start_time = campaign_with_product.start_time
 
     # Validate price
     if bid_data.price < min_price:
@@ -90,7 +92,7 @@ async def submit_bid(
             alpha=alpha,
             beta=beta,
             gamma=gamma,
-            campaign_start_time=campaign.start_time,
+            campaign_start_time=campaign_start_time,
         )
     except ValueError as e:
         if str(e) == "PRICE_TOO_LOW":

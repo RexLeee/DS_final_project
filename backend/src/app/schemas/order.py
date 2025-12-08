@@ -28,3 +28,13 @@ class OrderListResponse(BaseModel):
 
     orders: list[OrderResponse]
     total: int
+
+
+class CampaignOrdersResponse(BaseModel):
+    """Schema for campaign orders response with consistency verification."""
+
+    campaign_id: UUID
+    orders: list[OrderResponse]
+    total: int
+    stock: int
+    is_consistent: bool  # True if total <= stock (no overselling)

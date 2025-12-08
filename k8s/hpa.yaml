@@ -1,5 +1,7 @@
-# Backend HPA - Primary scaling configuration
-# Demo-optimized: Reduced replica range for cost efficiency
+# Backend HPA - Optimized for 1000 VU load testing
+# Controlled scaling to stay within Cloud SQL connection limits
+# Connection formula: maxReplicas × workers × (pool_size + max_overflow)
+#                   = 5 × 4 × 5 = 100 connections (within Cloud SQL limit)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -10,31 +12,31 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: 2
-  maxReplicas: 10
+  minReplicas: 3        # Higher baseline for demo readiness
+  maxReplicas: 5        # Limited to stay within DB connection limits
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 70
+          averageUtilization: 50   # Earlier scaling trigger
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 70
   behavior:
     scaleUp:
-      stabilizationWindowSeconds: 30
+      stabilizationWindowSeconds: 0    # Immediate scaling for flash sale
       policies:
         - type: Pods
-          value: 2
-          periodSeconds: 60
+          value: 4                      # Scale up faster
+          periodSeconds: 15
         - type: Percent
           value: 100
-          periodSeconds: 60
+          periodSeconds: 15
       selectPolicy: Max
     scaleDown:
       stabilizationWindowSeconds: 300

@@ -114,16 +114,16 @@ create_cloud_sql() {
     if gcloud sql instances describe $SQL_INSTANCE &>/dev/null; then
         echo_warn "Cloud SQL instance already exists, skipping..."
     else
-        # Demo-optimized: Using db-g1-small for cost efficiency
-        # For production, consider db-custom-2-4096 or higher
+        # Optimized for 1000 VU load testing
+        # 2 vCPU, 4GB RAM to handle high concurrent connections
         gcloud sql instances create $SQL_INSTANCE \
             --database-version=POSTGRES_15 \
-            --tier=db-g1-small \
+            --tier=db-custom-2-4096 \
             --region=$REGION \
             --network=$VPC_NAME \
             --no-assign-ip \
             --storage-size=10GB \
-            --storage-type=HDD \
+            --storage-type=SSD \
             --no-storage-auto-increase \
             --availability-type=ZONAL
 

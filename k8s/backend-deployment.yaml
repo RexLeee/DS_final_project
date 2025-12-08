@@ -35,15 +35,15 @@ spec:
                 name: flash-sale-config
             - secretRef:
                 name: flash-sale-secrets
-          # Demo-optimized: Lower resource requests for cost efficiency
-          # GKE Autopilot charges based on requested resources
+          # Optimized for 1000 VU load testing with 4 uvicorn workers
+          # Higher resources to handle concurrent requests
           resources:
             requests:
-              cpu: "200m"
-              memory: "256Mi"
+              cpu: "300m"
+              memory: "512Mi"
             limits:
-              cpu: "400m"
-              memory: "384Mi"
+              cpu: "600m"
+              memory: "768Mi"
           livenessProbe:
             httpGet:
               path: /health

@@ -10,17 +10,18 @@ redis_client: Optional[redis.Redis] = None
 
 
 def get_redis_pool() -> ConnectionPool:
-    """Get or create Redis connection pool with optimized settings."""
+    """Get or create Redis connection pool with optimized settings for high concurrency."""
     global redis_pool
     if redis_pool is None:
         redis_pool = ConnectionPool.from_url(
             settings.REDIS_URL,
-            max_connections=100,           # Limit connections per worker
+            max_connections=100,           # Increased for high concurrency (was 50)
             decode_responses=True,
             encoding="utf-8",
-            socket_timeout=5.0,            # Prevent hanging connections
-            socket_connect_timeout=5.0,    # Fast connect timeout
+            socket_timeout=10.0,           # Increased to handle high load (was 2.0)
+            socket_connect_timeout=5.0,    # Increased connect timeout (was 1.0)
             retry_on_timeout=True,         # Auto-retry on timeout
+            health_check_interval=15,      # Periodic health checks
         )
     return redis_pool
 

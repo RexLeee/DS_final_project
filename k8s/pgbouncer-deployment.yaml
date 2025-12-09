@@ -7,7 +7,7 @@ metadata:
     app: pgbouncer
     tier: database-proxy
 spec:
-  replicas: 5
+  replicas: 6   # Increased for better load distribution with 50 backend pods
   selector:
     matchLabels:
       app: pgbouncer
@@ -44,21 +44,21 @@ spec:
             - name: POOL_MODE
               value: "transaction"
             - name: MAX_CLIENT_CONN
-              value: "800"
+              value: "2000"           # Increased for high concurrency (was 1000)
             - name: DEFAULT_POOL_SIZE
-              value: "20"
+              value: "20"             # Increased for better throughput (was 15)
             - name: MIN_POOL_SIZE
-              value: "10"
+              value: "5"
             - name: RESERVE_POOL_SIZE
-              value: "15"
+              value: "10"             # Burst capacity
             - name: MAX_DB_CONNECTIONS
-              value: "30"
+              value: "30"             # 6 pods × 30 = 180 (Cloud SQL needs max_connections=200)
             - name: QUERY_TIMEOUT
-              value: "30"
+              value: "30"             # Increased for high concurrency (was 10)
             - name: CLIENT_IDLE_TIMEOUT
               value: "300"
             - name: SERVER_IDLE_TIMEOUT
-              value: "60"
+              value: "60"             # Increased to reduce connection churn (was 30)
             - name: IGNORE_STARTUP_PARAMETERS
               value: "extra_float_digits"
             - name: AUTH_TYPE

@@ -1,0 +1,34 @@
+# BackendConfig for GCE Ingress - High Concurrency Optimization
+# This configures the GCP Load Balancer backend settings for better performance
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: backend-config
+  namespace: flash-sale
+spec:
+  # Timeout for backend requests (increased for high concurrency)
+  timeoutSec: 60
+
+  # Connection draining settings for graceful pod termination
+  connectionDraining:
+    drainingTimeoutSec: 30
+
+  # Health check configuration (optimized for faster detection)
+  healthCheck:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 8000
+
+  # Session affinity (disabled for stateless API)
+  # sessionAffinity:
+  #   affinityType: "GENERATED_COOKIE"
+  #   affinityCookieTtlSec: 50
+
+  # Logging configuration (optional - enable for debugging)
+  # logging:
+  #   enable: true
+  #   sampleRate: 0.5

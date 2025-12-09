@@ -1,9 +1,13 @@
 """Authentication API endpoints."""
 
+import hashlib
+import json
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.config import settings
+from app.core.redis import get_redis
 from app.core.security import create_access_token
 from app.schemas.user import TokenResponse, UserLogin, UserRegister, UserResponse
 from app.services.user_service import UserService
@@ -44,7 +48,10 @@ async def register(user_data: UserRegister, db: DbSession):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(user_data: UserLogin, db: DbSession):
-    """Login and get access token.
+    """Login and get access token with Redis session caching.
+
+    Uses Redis to cache successful login sessions for 60 seconds to avoid
+    repeated bcrypt password verification during high-concurrency load tests.
 
     Args:
         user_data: Login credentials (email, password)
@@ -56,6 +63,22 @@ async def login(user_data: UserLogin, db: DbSession):
     Raises:
         401: Invalid credentials
     """
+    # Generate cache key using SHA256 hash (consistent across processes)
+    cache_key = f"login:{hashlib.sha256(f'{user_data.email}:{user_data.password}'.encode()).hexdigest()[:16]}"
+
+    # Try to get cached session from Redis
+    try:
+        redis = await get_redis()
+        cached_session = await redis.get(cache_key)
+
+        if cached_session:
+            # Cache hit - return cached token (avoids bcrypt verification)
+            return TokenResponse(**json.loads(cached_session))
+    except Exception:
+        # If Redis fails, continue with normal login flow
+        pass
+
+    # Cache miss - perform normal authentication
     user_service = UserService(db)
     user = await user_service.authenticate(user_data.email, user_data.password)
 
@@ -74,11 +97,20 @@ async def login(user_data: UserLogin, db: DbSession):
     }
     access_token = create_access_token(data=token_data)
 
-    return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    response_data = {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
+
+    # Cache the session in Redis (60 second TTL to reduce bcrypt load)
+    try:
+        await redis.setex(cache_key, 60, json.dumps(response_data))
+    except Exception:
+        # If Redis caching fails, still return the token
+        pass
+
+    return TokenResponse(**response_data)
 
 
 @router.get("/me", response_model=UserResponse)

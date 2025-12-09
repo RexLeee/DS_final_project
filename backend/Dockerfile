@@ -68,8 +68,11 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Start application with optimized settings for high concurrency
-# --workers 4: Multiple worker processes for better CPU utilization
+# Start application with optimized settings for high concurrency (K8s best practice)
+# --workers 1: Single worker per Pod, HPA handles horizontal scaling
+# --loop uvloop: 2-3x async performance improvement
+# --http httptools: Faster HTTP parsing
 # --timeout-keep-alive 30: Keep connections alive to reduce EOF errors
-# --limit-concurrency 200: Limit concurrent requests per worker
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--timeout-keep-alive", "30", "--limit-concurrency", "200"]
+# --limit-concurrency 150: Limit concurrent requests per worker
+# --limit-max-requests 10000: Prevent memory leaks by recycling workers
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--loop", "uvloop", "--http", "httptools", "--timeout-keep-alive", "30", "--limit-concurrency", "150", "--limit-max-requests", "10000"]

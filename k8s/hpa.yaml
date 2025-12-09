@@ -1,8 +1,8 @@
-# Backend HPA - Optimized for 1000 VU load testing with PgBouncer
-# PgBouncer enables higher maxReplicas by multiplexing DB connections
+# Backend HPA - Aggressive scaling for 1000 VU load testing
+# Optimized for single-worker-per-pod strategy with uvloop
 # Connection formula (with PgBouncer):
-#   App side: maxReplicas × workers × pool_size = 20 × 4 × 8 = 640 app connections
-#   DB side: PgBouncer 5 pods × 30 max_db_connections = 150 (matches Cloud SQL limit)
+#   App side: maxReplicas × 1 worker × pool_size = 50 × 1 × 5 = 250 app connections
+#   DB side: PgBouncer 6 pods × 25 max_db_connections = 150 (matches Cloud SQL limit)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -13,37 +13,37 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: 3        # Higher baseline for demo readiness
-  maxReplicas: 20       # Increased to match PgBouncer capacity (3 pods × 800 connections)
+  minReplicas: 5         # Higher baseline for flash sale readiness
+  maxReplicas: 50        # Increased for aggressive horizontal scaling
   metrics:
     - type: Resource
       resource:
         name: cpu
         target:
           type: Utilization
-          averageUtilization: 70   # Higher threshold with better resource limits
+          averageUtilization: 50   # Lower threshold to trigger scaling earlier
     - type: Resource
       resource:
         name: memory
         target:
           type: Utilization
-          averageUtilization: 80
+          averageUtilization: 70
   behavior:
     scaleUp:
       stabilizationWindowSeconds: 0    # Immediate scaling for flash sale
       policies:
         - type: Pods
-          value: 4                      # Scale up faster
+          value: 10                     # Scale up aggressively
           periodSeconds: 15
         - type: Percent
-          value: 100
+          value: 200                    # Double pods if needed
           periodSeconds: 15
       selectPolicy: Max
     scaleDown:
       stabilizationWindowSeconds: 300
       policies:
         - type: Pods
-          value: 1
+          value: 2
           periodSeconds: 60
         - type: Percent
           value: 10

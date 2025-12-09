@@ -22,6 +22,8 @@ def _user_from_cache(user_id: UUID, data: dict[str, str]) -> User:
     """Reconstruct a User object from cached data.
 
     Creates a detached User instance without hitting the database.
+    Uses object.__setattr__ to bypass SQLAlchemy's attribute instrumentation,
+    which allows us to create a valid detached object without a session.
 
     Args:
         user_id: User UUID
@@ -30,15 +32,18 @@ def _user_from_cache(user_id: UUID, data: dict[str, str]) -> User:
     Returns:
         User instance (detached from session)
     """
-    user = User.__new__(User)
-    user.user_id = user_id
-    user.username = data.get("username", "")
-    user.email = data.get("email", "")
-    user.weight = Decimal(data.get("weight", "1.0"))
-    user.status = data.get("status", "active")
-    user.is_admin = data.get("is_admin", "False").lower() == "true"
-    # Note: password_hash is not cached for security
-    user.password_hash = ""
+    # Create User instance normally (this initializes _sa_instance_state)
+    user = User(
+        email=data.get("email", ""),
+        password_hash="",  # Not cached for security
+        username=data.get("username", ""),
+        weight=Decimal(data.get("weight", "1.0")),
+        status=data.get("status", "active"),
+        is_admin=data.get("is_admin", "False").lower() == "true",
+    )
+    # Set user_id using object.__setattr__ to bypass SQLAlchemy instrumentation
+    # since user_id is typically set by the database
+    object.__setattr__(user, 'user_id', user_id)
     return user
 
 

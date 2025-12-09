@@ -168,6 +168,14 @@ create_cloud_sql() {
         echo_info "Creating database..."
         gcloud sql databases create flash_sale \
             --instance=$SQL_INSTANCE
+
+        # Set max_connections=200 for high concurrency (PgBouncer 6 pods × 30 = 180 connections)
+        # Default ~100 is insufficient for 1000 VU load testing
+        echo_info "Setting max_connections=200 for high concurrency support..."
+        gcloud sql instances patch $SQL_INSTANCE \
+            --database-flags=max_connections=200
+        echo_info "Waiting for Cloud SQL to restart with new configuration..."
+        sleep 60
     fi
 
     CLOUD_SQL_IP=$(gcloud sql instances describe $SQL_INSTANCE --format='value(ipAddresses[0].ipAddress)')

@@ -1,4 +1,5 @@
 # Backend Service (ClusterIP for internal access)
+# With BackendConfig for GCE Ingress optimization
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,6 +7,11 @@ metadata:
   namespace: flash-sale
   labels:
     app: backend
+  annotations:
+    # Link to BackendConfig for GCE Ingress settings (timeout, health check, etc.)
+    cloud.google.com/backend-config: '{"default": "backend-config"}'
+    # Enable container-native load balancing for better performance
+    cloud.google.com/neg: '{"ingress": true}'
 spec:
   type: ClusterIP
   selector:

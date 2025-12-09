@@ -13,6 +13,10 @@ const ADMIN_EMAIL = __ENV.ADMIN_EMAIL || 'admin@test.com';
 const ADMIN_PASSWORD = __ENV.ADMIN_PASSWORD || 'admin123';
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
+// Pre-login mode: if true, login once in setup() and reuse tokens
+// This dramatically reduces load on the auth system (10x fewer requests)
+const PRE_LOGIN = __ENV.PRE_LOGIN !== 'false'; // default: true
+
 // =============================================================================
 // Custom Metrics
 // =============================================================================
@@ -46,6 +50,7 @@ const phase3Bids = new Counter('phase3_bids'); // 70-100% of time (burst)
 // - 展示 CPU 使用率上升時，Container/Instance 數量的變化
 
 export const options = {
+  setupTimeout: '600s',  // 10 minutes - needed for 1000 users pre-login
   scenarios: {
     // Single scenario with exponential behavior
     exponential_load: {
@@ -146,32 +151,45 @@ function trackPhaseMetric(elapsedRatio) {
 // Main Test Function
 // =============================================================================
 
-export default function () {
-  const email = getTestUserEmail(__VU);
+export default function (data) {
   const elapsedRatio = getElapsedRatio();
+  let token;
 
-  // Step 1: Login
-  const loginStart = Date.now();
-  const loginRes = http.post(
-    `${BASE_URL}/api/v1/auth/login`,
-    JSON.stringify({ email, password: 'password123' }),
-    { headers: JSON_HEADERS, tags: { name: 'login' } }
-  );
-  loginLatency.add(Date.now() - loginStart);
+  if (PRE_LOGIN && data.tokens) {
+    // Use pre-fetched token from setup() - avoids login on every iteration
+    const userIndex = ((__VU - 1) % USER_POOL_SIZE) + 1;
+    token = data.tokens[userIndex];
 
-  const loginOk = check(loginRes, {
-    'login successful': (r) => r.status === 200,
-  });
+    if (!token) {
+      sleep(0.1);
+      return;
+    }
+  } else {
+    // Legacy mode: login on every iteration (not recommended for high concurrency)
+    const email = getTestUserEmail(__VU);
 
-  if (!loginOk) {
-    sleep(0.3);
-    return;
-  }
+    const loginStart = Date.now();
+    const loginRes = http.post(
+      `${BASE_URL}/api/v1/auth/login`,
+      JSON.stringify({ email, password: 'password123' }),
+      { headers: JSON_HEADERS, tags: { name: 'login' } }
+    );
+    loginLatency.add(Date.now() - loginStart);
 
-  const token = loginRes.json('access_token');
-  if (!token) {
-    sleep(0.3);
-    return;
+    const loginOk = check(loginRes, {
+      'login successful': (r) => r.status === 200,
+    });
+
+    if (!loginOk) {
+      sleep(0.3);
+      return;
+    }
+
+    token = loginRes.json('access_token');
+    if (!token) {
+      sleep(0.3);
+      return;
+    }
   }
 
   // Step 2: Place bids (frequency increases exponentially)
@@ -261,6 +279,7 @@ export function setup() {
   console.log(`  Base URL: ${BASE_URL}`);
   console.log(`  Campaign ID: ${CAMPAIGN_ID}`);
   console.log(`  User Pool: ${USER_POOL_SIZE} users`);
+  console.log(`  Pre-login mode: ${PRE_LOGIN ? 'ENABLED (recommended)' : 'DISABLED'}`);
   console.log('');
   console.log('Test Phases (9 min total):');
   console.log('  Phase 1 (0-3 min):  Warmup 0→600 VUs, ~30 req/min per VU');
@@ -286,7 +305,55 @@ export function setup() {
     console.error('ERROR: CAMPAIGN_ID not set!');
   }
 
-  return { startTime: Date.now() };
+  // Pre-fetch tokens for all users in setup phase
+  // Using http.batch() for parallel requests to speed up pre-login
+  const tokens = {};
+  const BATCH_SIZE = 50;  // Process 50 users in parallel per batch
+
+  if (PRE_LOGIN) {
+    console.log('');
+    console.log(`Pre-fetching tokens for ${USER_POOL_SIZE} users (batch size: ${BATCH_SIZE})...`);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let batchStart = 1; batchStart <= USER_POOL_SIZE; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, USER_POOL_SIZE);
+      const requests = [];
+
+      // Build batch requests
+      for (let i = batchStart; i <= batchEnd; i++) {
+        const email = getTestUserEmail(i);
+        requests.push([
+          'POST',
+          `${BASE_URL}/api/v1/auth/login`,
+          JSON.stringify({ email, password: 'password123' }),
+          { headers: JSON_HEADERS, tags: { name: 'pre-login' } }
+        ]);
+      }
+
+      // Execute batch in parallel
+      const responses = http.batch(requests);
+
+      // Collect tokens from responses
+      responses.forEach((res, idx) => {
+        const userIndex = batchStart + idx;
+        if (res.status === 200) {
+          tokens[userIndex] = res.json('access_token');
+          successCount++;
+        } else {
+          failCount++;
+        }
+      });
+
+      // Progress logging every batch
+      console.log(`  Progress: ${batchEnd}/${USER_POOL_SIZE} users (${successCount} success, ${failCount} failed)`);
+    }
+
+    console.log(`Pre-login complete: ${successCount} success, ${failCount} failed`);
+    console.log('='.repeat(70));
+  }
+
+  return { tokens, startTime: Date.now() };
 }
 
 export function teardown(data) {

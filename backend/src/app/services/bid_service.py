@@ -178,17 +178,14 @@ class BidService:
         bid = result.scalar_one()
         await self.db.commit()
 
-        # Update Redis ranking with bid details
-        await self.redis_service.update_ranking(
+        # Update Redis ranking and get rank in single pipeline call (3 RTTs -> 1 RTT)
+        rank = await self.redis_service.update_ranking_and_get_rank(
             str(campaign_id),
             str(user.user_id),
             score,
             price=float(price),
             username=user.username,
         )
-
-        # Get user's current rank
-        rank = await self.redis_service.get_user_rank(str(campaign_id), str(user.user_id))
 
         return bid, rank or 0
 

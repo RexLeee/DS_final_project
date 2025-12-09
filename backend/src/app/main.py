@@ -5,12 +5,15 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 
 from app.api.v1 import auth, bids, campaigns, orders, products, rankings, ws
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
+from app.middleware.metrics import PrometheusMiddleware, metrics_endpoint
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.models.campaign import Campaign
 from app.services.redis_service import RedisService
 from app.services.settlement_service import SettlementService
 from app.services.ws_manager import broadcast_ranking_update, manager
@@ -123,7 +126,49 @@ async def lifespan(app: FastAPI):
     global _ranking_broadcast_task, _settlement_check_task
 
     # Startup
-    logger.info("Starting background tasks")
+    logger.info("Starting application...")
+
+    # Pre-warm active campaign caches
+    logger.info("Pre-warming campaign caches...")
+    try:
+        async for db in get_db():
+            try:
+                redis = await get_redis()
+                redis_service = RedisService(redis)
+
+                now = datetime.now(timezone.utc)
+                result = await db.execute(
+                    select(Campaign)
+                    .where(Campaign.start_time <= now)
+                    .where(Campaign.end_time > now)
+                )
+                active_campaigns = result.scalars().all()
+
+                for campaign in active_campaigns:
+                    if campaign.product:
+                        await redis_service.cache_campaign(
+                            str(campaign.campaign_id),
+                            {
+                                "alpha": str(campaign.alpha),
+                                "beta": str(campaign.beta),
+                                "gamma": str(campaign.gamma),
+                                "stock": str(campaign.product.stock),
+                                "min_price": str(campaign.product.min_price),
+                                "product_id": str(campaign.product_id),
+                                "start_time": campaign.start_time.isoformat(),
+                                "end_time": campaign.end_time.isoformat(),
+                            },
+                            ttl=3600,  # 1 hour TTL
+                        )
+                        logger.info(f"Pre-warmed cache for campaign {campaign.campaign_id}")
+            finally:
+                pass
+            break
+    except Exception as e:
+        logger.warning(f"Failed to pre-warm campaign caches: {e}")
+
+    # Start background tasks
+    logger.info("Starting background tasks...")
     _ranking_broadcast_task = asyncio.create_task(ranking_broadcast_loop())
     _settlement_check_task = asyncio.create_task(settlement_check_loop())
 
@@ -153,6 +198,9 @@ app = FastAPI(
     description="Real-time Bidding & Flash Sale System",
     lifespan=lifespan,
 )
+
+# Prometheus Metrics Middleware (must be first to capture all requests)
+app.add_middleware(PrometheusMiddleware)
 
 # Rate Limiting Middleware (must be before CORS)
 # Load testing config: user_limit=100, ip_limit=10000 (supports 1000 VUs from k6)
@@ -185,3 +233,7 @@ app.include_router(ws.router, tags=["websocket"])
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
+
+
+# Prometheus metrics endpoint
+app.add_route("/metrics", metrics_endpoint)

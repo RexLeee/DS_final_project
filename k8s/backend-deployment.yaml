@@ -35,16 +35,16 @@ spec:
                 name: flash-sale-config
             - secretRef:
                 name: flash-sale-secrets
-          # Optimized for 1000 VU load testing with 4 uvicorn workers
-          # Increased resources to handle high concurrency (384MB per worker)
-          # Supports PgBouncer-enabled scaling (maxReplicas=20)
+          # Optimized for 1000 VU load testing with single uvicorn worker per Pod
+          # Reduced resources to allow more Pods for horizontal scaling (HPA up to 50)
+          # Single worker + uvloop + httptools for 2-3x async performance
           resources:
             requests:
-              cpu: "750m"
-              memory: "768Mi"
+              cpu: "200m"
+              memory: "256Mi"
             limits:
-              cpu: "1500m"
-              memory: "1536Mi"
+              cpu: "400m"
+              memory: "512Mi"
           livenessProbe:
             httpGet:
               path: /health

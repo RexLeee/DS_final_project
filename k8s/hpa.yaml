@@ -1,8 +1,8 @@
 # Backend HPA - Aggressive scaling for 1000 VU load testing
 # Optimized for single-worker-per-pod strategy with uvloop
 # Connection formula (with PgBouncer):
-#   App side: maxReplicas × 1 worker × pool_size = 50 × 1 × 5 = 250 app connections
-#   DB side: PgBouncer 6 pods × 25 max_db_connections = 150 (matches Cloud SQL limit)
+#   App side: maxReplicas × 1 worker × (pool_size + max_overflow) = 50 × 1 × (8+15) = 1150 max app connections
+#   DB side: PgBouncer 6 pods × 30 max_db_connections = 180 (Cloud SQL max_connections: 200)
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

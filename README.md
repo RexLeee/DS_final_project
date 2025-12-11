@@ -51,7 +51,7 @@
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      GCP Ingress (L7)                           │
-│         /api/* ──► Backend    /* ──► Frontend                   │
+│     /api/* & /ws/* ──► Backend    /* ──► Frontend               │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
             ┌───────────────┴───────────────┐
@@ -129,7 +129,7 @@ Cloud SQL PostgreSQL
 | Deployment | frontend        | Nginx 靜態檔案服務                      |
 | Deployment | pgbouncer       | 6 Replicas 連線池代理                   |
 | Service    | ClusterIP       | 內部服務發現                            |
-| Ingress    | GCP L7 LB       | 路由 /api/* → Backend, /* → Frontend   |
+| Ingress    | GCP L7 LB       | 路由 /api/*, /ws/* → Backend, /* → Frontend |
 | HPA        | backend-hpa     | CPU 50% 觸發，5-50 Pods                 |
 | HPA        | frontend-hpa    | CPU 70% 觸發，1-5 Pods                  |
 

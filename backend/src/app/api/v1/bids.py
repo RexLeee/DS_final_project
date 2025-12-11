@@ -1,19 +1,12 @@
 """Bidding API endpoints."""
 
 import asyncio
-from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy.orm import selectinload
 
-from app.api.deps import CurrentUser, DbSession
-from app.core.redis import get_redis
-from app.models.campaign import Campaign
+from app.api.deps import CurrentUser, BidServiceDep, RedisServiceDep
 from app.schemas.bid import BidCreate, BidHistoryResponse, BidResponse
-from app.services.bid_service import BidService
-from app.services.redis_service import RedisService
 from app.services.ws_manager import send_bid_accepted
 
 router = APIRouter()
@@ -22,13 +15,14 @@ router = APIRouter()
 @router.post("", response_model=BidResponse, status_code=status.HTTP_201_CREATED)
 async def submit_bid(
     bid_data: BidCreate,
-    db: DbSession,
     current_user: CurrentUser,
+    bid_service: BidServiceDep,
 ):
-    """Submit or update a bid for a campaign."""
-    redis_client = await get_redis()
-    redis_service = RedisService(redis_client)
-    bid_service = BidService(db, redis_service)
+    """Submit or update a bid for a campaign.
+
+    P1 Optimization: Uses dependency injection for BidService instead of
+    creating new instances per request, reducing GC pressure.
+    """
 
     # Validate campaign (uses Redis cache first, returns cached dict or Campaign object)
     campaign_data, error_code = await bid_service.get_campaign_with_validation(bid_data.campaign_id)
@@ -49,44 +43,30 @@ async def submit_bid(
             detail={"code": "CAMPAIGN_ENDED", "message": "Campaign has ended"},
         )
 
-    # Extract campaign params from validation result (dict from Redis or Campaign object from DB)
-    if isinstance(campaign_data, dict):
-        # From Redis cache - already validated, use cached params directly
-        alpha = Decimal(campaign_data["alpha"])
-        beta = Decimal(campaign_data["beta"])
-        gamma = Decimal(campaign_data["gamma"])
-        min_price = Decimal(campaign_data["min_price"])
-        product_id = UUID(campaign_data["product_id"])
-        campaign_start_time = datetime.fromisoformat(campaign_data["start_time"])
-    else:
-        # From DB - need to load product for min_price
-        from sqlalchemy import select
-        result = await db.execute(
-            select(Campaign)
-            .options(selectinload(Campaign.product))
-            .where(Campaign.campaign_id == bid_data.campaign_id)
-        )
-        campaign_with_product = result.scalar_one()
-        alpha = campaign_with_product.alpha
-        beta = campaign_with_product.beta
-        gamma = campaign_with_product.gamma
-        min_price = campaign_with_product.product.min_price
-        product_id = campaign_with_product.product_id
-        campaign_start_time = campaign_with_product.start_time
+    # P0 Optimization: campaign_data is now always a dict with pre-converted types
+    # (float for alpha/beta/gamma/min_price, UUID for product_id, datetime for start_time)
+    # This eliminates 6+ type conversions per request
+    alpha = campaign_data["alpha"]  # Already float
+    beta = campaign_data["beta"]
+    gamma = campaign_data["gamma"]
+    min_price = campaign_data["min_price"]
+    product_id = campaign_data["product_id"]
+    campaign_start_time = campaign_data["start_time"]
 
-    # Validate price
-    if bid_data.price < min_price:
+    # Validate price (convert bid_data.price to float for comparison)
+    bid_price = float(bid_data.price)
+    if bid_price < min_price:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "PRICE_TOO_LOW", "message": f"Price must be at least {min_price}"},
         )
 
-    # Create or update bid
+    # Create or update bid (all params are now float)
     try:
         bid, rank = await bid_service.create_or_update_bid(
             campaign_id=bid_data.campaign_id,
             user=current_user,
-            price=bid_data.price,
+            price=bid_price,
             product_id=product_id,
             min_price=min_price,
             alpha=alpha,
@@ -131,20 +111,25 @@ async def submit_bid(
 @router.get("/{campaign_id}/history", response_model=BidHistoryResponse)
 async def get_bid_history(
     campaign_id: UUID,
-    db: DbSession,
     current_user: CurrentUser,
+    bid_service: BidServiceDep,
+    redis_service: RedisServiceDep,
 ):
-    """Get user's bid history for a campaign."""
-    redis_client = await get_redis()
-    redis_service = RedisService(redis_client)
-    bid_service = BidService(db, redis_service)
+    """Get user's bid history for a campaign.
+
+    P1 Optimization: Uses dependency injection for services.
+    """
 
     bids = await bid_service.get_user_bid_history(campaign_id, current_user.user_id)
 
-    # Get current rank for each bid
+    # P1 Optimization: Query rank once outside loop (same user + same campaign = same rank)
+    # Before: N Redis queries in loop (N = number of bid history entries)
+    # After: 1 Redis query + reuse in loop
+    rank = await redis_service.get_user_rank(str(campaign_id), str(current_user.user_id))
+    current_rank = rank or 0
+
     bid_responses = []
     for bid in bids:
-        rank = await redis_service.get_user_rank(str(campaign_id), str(current_user.user_id))
         bid_responses.append(
             BidResponse(
                 bid_id=bid.bid_id,
@@ -152,7 +137,7 @@ async def get_bid_history(
                 user_id=bid.user_id,
                 price=bid.price,
                 score=float(bid.score),
-                rank=rank or 0,
+                rank=current_rank,
                 time_elapsed_ms=bid.time_elapsed_ms,
                 bid_number=bid.bid_number,
                 created_at=bid.created_at,

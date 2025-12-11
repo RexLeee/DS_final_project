@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -74,4 +74,9 @@ class Order(Base):
     __table_args__ = (
         CheckConstraint("final_rank > 0", name="chk_order_rank_positive"),
         UniqueConstraint("campaign_id", "user_id", name="uq_order_campaign_user"),
+        # P2 Optimization: Composite indexes for common query patterns
+        # ORDER BY created_at DESC queries with campaign_id or user_id filter
+        Index("idx_orders_campaign_created", "campaign_id", "created_at"),
+        Index("idx_orders_user_created", "user_id", "created_at"),
+        Index("idx_orders_status", "status"),
     )

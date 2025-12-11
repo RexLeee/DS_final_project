@@ -89,21 +89,32 @@ class CampaignService:
 
         if self.redis_service:
             campaign_id_str = str(campaign_id)
-            stats.total_participants = await self.redis_service.get_total_participants(campaign_id_str)
+
+            # P1 Optimization: Use batch method for all Redis stats (3 RTT → 1 RTT)
+            # Before: 3 separate Redis calls (get_total_participants, get_max_score, get_min_winning_score)
+            # After: 1 pipeline call with all 3 queries
+            batch_stats = await self.redis_service.get_campaign_stats_batch(campaign_id_str, stock)
+
+            stats.total_participants = batch_stats["total_participants"]
 
             if stats.total_participants > 0:
-                # Get max score
-                max_score = await self.redis_service.get_max_score(campaign_id_str)
+                max_score = batch_stats["max_score"]
                 if max_score is not None:
-                    stats.min_winning_score = max_score  # Will be updated below if applicable
+                    stats.min_winning_score = max_score  # Default to max if less than K participants
 
-                # Get min winning score (score at position K)
+                # Use min_winning_score if we have enough participants
                 if stats.total_participants >= stock:
-                    min_winning = await self.redis_service.get_min_winning_score(campaign_id_str, stock)
+                    min_winning = batch_stats["min_winning_score"]
                     if min_winning is not None:
                         stats.min_winning_score = min_winning
 
-        # Get max price from database
+            # P1 Optimization: Get max_price from Redis cache if available
+            max_price = await self.redis_service.get_max_price(campaign_id_str)
+            if max_price is not None:
+                stats.max_price = max_price
+                return stats
+
+        # Fallback: Get max price from database if not in Redis
         max_price_result = await self.db.execute(
             select(func.max(Bid.price))
             .where(Bid.campaign_id == campaign_id)

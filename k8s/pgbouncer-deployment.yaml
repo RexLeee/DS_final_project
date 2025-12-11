@@ -7,7 +7,7 @@ metadata:
     app: pgbouncer
     tier: database-proxy
 spec:
-  replicas: 6   # Increased for better load distribution with 50 backend pods
+  replicas: 2   # 2 pods × 30 max_db_connections = 60 (sufficient for demo, saves resources)
   selector:
     matchLabels:
       app: pgbouncer
@@ -15,7 +15,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0
+      maxUnavailable: 1  # Allow 1 pod unavailable during update to prevent stuck rollouts
   template:
     metadata:
       labels:
@@ -24,14 +24,14 @@ spec:
     spec:
       containers:
         - name: pgbouncer
-          image: us-central1-docker.pkg.dev/ds-final-project-480207/flash-sale-repo/pgbouncer:latest
+          image: us-central1-docker.pkg.dev/dsfinal-480908/flash-sale-repo/pgbouncer:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5432
               protocol: TCP
           env:
             - name: DB_HOST
-              value: "10.71.0.3"
+              value: "10.11.0.3"
             - name: DB_USER
               value: "postgres"
             - name: DB_PASSWORD

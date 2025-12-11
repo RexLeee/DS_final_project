@@ -7,7 +7,7 @@ metadata:
     app: backend
     tier: api
 spec:
-  # Demo-optimized: Start with 2 replicas, HPA will scale up as needed
+  # Optimized for 12 vCPU GCP quota limit
   replicas: 2
   selector:
     matchLabels:
@@ -16,7 +16,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0
+      maxUnavailable: 1  # Allow 1 pod unavailable during update to prevent stuck rollouts
   template:
     metadata:
       labels:
@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: us-central1-docker.pkg.dev/ds-final-project-480207/flash-sale-repo/backend:latest
+          image: us-central1-docker.pkg.dev/dsfinal-480908/flash-sale-repo/backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
@@ -36,23 +36,23 @@ spec:
             - secretRef:
                 name: flash-sale-secrets
           # Optimized for 1000 VU load testing with single uvicorn worker per Pod
-          # Reduced resources to allow more Pods for horizontal scaling (HPA up to 50)
+          # Increased resources to handle higher concurrency per pod
           # Single worker + uvloop + httptools for 2-3x async performance
           resources:
             requests:
-              cpu: "200m"
-              memory: "256Mi"
+              cpu: "300m"
+              memory: "384Mi"
             limits:
-              cpu: "400m"
-              memory: "512Mi"
+              cpu: "1000m"
+              memory: "768Mi"
           livenessProbe:
             httpGet:
               path: /health
               port: 8000
             initialDelaySeconds: 15
-            periodSeconds: 20
-            timeoutSeconds: 5
-            failureThreshold: 3
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /health

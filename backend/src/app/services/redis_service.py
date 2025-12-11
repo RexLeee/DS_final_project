@@ -415,23 +415,29 @@ class RedisService:
 
     # ==================== User Cache Operations ====================
 
-    USER_CACHE_TTL = 30  # 30 seconds TTL for user cache
+    # P1 Optimization: Increased TTL from 30s to 120s to reduce cache misses
+    USER_CACHE_TTL = 120  # 120 seconds TTL for user cache
 
-    async def cache_user(self, user_id: str, user_data: dict[str, Any]) -> None:
-        """Cache user data in Redis Hash with short TTL.
+    async def cache_user(
+        self, user_id: str, user_data: dict[str, Any], ttl: int | None = None
+    ) -> None:
+        """Cache user data in Redis Hash with configurable TTL.
 
+        P1 Optimization: Now accepts optional TTL parameter.
         Key pattern: user:{user_id}
 
         Args:
             user_id: User UUID string
             user_data: User data dict (values will be converted to strings)
+            ttl: Optional TTL in seconds (defaults to USER_CACHE_TTL)
         """
         key = f"user:{user_id}"
+        cache_ttl = ttl if ttl is not None else self.USER_CACHE_TTL
         # Convert all values to strings for Redis hash
         string_data = {k: str(v) for k, v in user_data.items()}
         pipe = self.redis.pipeline()
         pipe.hset(key, mapping=string_data)
-        pipe.expire(key, self.USER_CACHE_TTL)
+        pipe.expire(key, cache_ttl)
         await pipe.execute()
 
     async def get_cached_user(self, user_id: str) -> dict[str, str] | None:
@@ -461,6 +467,46 @@ class RedisService:
         key = f"user:{user_id}"
         result = await self.redis.delete(key)
         return result > 0
+
+    # ==================== Max Price Cache Operations ====================
+
+    # P1 Optimization: Lua script for atomic max price update (2 RTT -> 1 RTT)
+    UPDATE_MAX_PRICE_SCRIPT = """
+local key = KEYS[1]
+local new_price = tonumber(ARGV[1])
+local current = tonumber(redis.call('GET', key) or '0')
+if new_price > current then
+    redis.call('SET', key, ARGV[1])
+    return 1
+end
+return 0
+"""
+
+    async def update_max_price(self, campaign_id: str, price: float) -> None:
+        """Update max price for a campaign in Redis (only if higher than current).
+
+        P1 Optimization: Uses Lua script for atomic operation (2 RTT -> 1 RTT).
+        Called after each bid to maintain real-time max price without DB query.
+
+        Args:
+            campaign_id: Campaign UUID string
+            price: New bid price to potentially update max
+        """
+        key = f"campaign:{campaign_id}:max_price"
+        await self.redis.eval(self.UPDATE_MAX_PRICE_SCRIPT, 1, key, str(price))
+
+    async def get_max_price(self, campaign_id: str) -> float | None:
+        """Get cached max price for a campaign.
+
+        Args:
+            campaign_id: Campaign UUID string
+
+        Returns:
+            Max price or None if not cached
+        """
+        key = f"campaign:{campaign_id}:max_price"
+        value = await self.redis.get(key)
+        return float(value) if value is not None else None
 
     # ==================== Campaign Stats Batch Operations ====================
 

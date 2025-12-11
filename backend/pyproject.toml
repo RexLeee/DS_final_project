@@ -25,6 +25,8 @@ dependencies = [
     "httptools>=0.6.0",
     # Monitoring
     "prometheus-client>=0.19.0",
+    # Caching utilities (P3 optimization)
+    "cachetools>=5.3.0",
 ]
 
 [project.optional-dependencies]

@@ -2,20 +2,29 @@
 
 Creates:
 - 1 admin + 1000 test users with random weights (0.5-5.0)
-- 5 test products with varying stock
+- 5 test products (first product configured for k6 load testing)
 - 1 active campaign with configurable duration
 
 Environment Variables:
-    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 30)
+    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 15)
     RESET_DATA: Set to "true" to clear bids/orders/campaigns before seeding (default: false)
     LOAD_TEST_STOCK: Stock quantity for load testing (default: 100)
 
 Usage:
-    # First time setup
+    # First time setup (creates users & products)
     uv run python -m scripts.seed_data
 
-    # Reset for load testing (clears bids/orders/campaigns, creates new campaign)
+    # Reset for load testing (clears bids/orders/campaigns, creates new 15-min campaign)
+    RESET_DATA=true uv run python -m scripts.seed_data
+
+    # Custom duration (e.g., 30 minutes for longer tests)
     RESET_DATA=true CAMPAIGN_DURATION_MINUTES=30 uv run python -m scripts.seed_data
+
+k6 Test Integration:
+    This script creates data compatible with k6-tests/exponential-load.js:
+    - Users: user0001@test.com ~ user1000@test.com (password: password123)
+    - Product min_price: 2000.00 (k6 uses basePrice = 2000)
+    - Campaign duration: 15 minutes (k6 test runs ~10 minutes)
 """
 
 import asyncio
@@ -25,7 +34,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 # Configuration from environment variables
-CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "30"))
+CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "15"))
 RESET_DATA = os.getenv("RESET_DATA", "false").lower() == "true"
 LOAD_TEST_STOCK = int(os.getenv("LOAD_TEST_STOCK", "100"))
 
@@ -127,8 +136,8 @@ async def seed_products(session: AsyncSession) -> list[Product]:
             "name": "限量球鞋 Air Max 2025",
             "description": "2025年度限量發售運動鞋，全球限量100雙",
             "image_url": "https://example.com/images/airmax2025.jpg",
-            "stock": 10,
-            "min_price": Decimal("1000.00"),
+            "stock": 100,  # Default stock for load testing (overridden by LOAD_TEST_STOCK)
+            "min_price": Decimal("2000.00"),  # k6 test uses basePrice = 2000
             "status": "active",
         },
         {
@@ -316,10 +325,12 @@ async def main():
     print("")
     print("To run 1000 VU load test, use:")
     print(f"  cd k6-tests && k6 run \\")
-    print(f"    -e BASE_URL=http://34.49.66.36 \\")
+    print(f"    -e BASE_URL=http://localhost:8000 \\")
     print(f"    -e CAMPAIGN_ID={campaign.campaign_id} \\")
     print(f"    -e USER_POOL_SIZE=1000 \\")
-    print(f"    high-concurrency.js")
+    print(f"    exponential-load.js")
+    print("")
+    print("Then view results: open k6-report-latest.html")
     print("=" * 60)
 
     # Cleanup

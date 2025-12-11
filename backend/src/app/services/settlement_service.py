@@ -84,6 +84,22 @@ class SettlementService:
         campaign_id_str = str(campaign_id)
         top_k = await self.redis_service.get_top_k(campaign_id_str, stock)
 
+        # P0 Optimization: Batch query all Bids upfront to eliminate N+1 problem
+        # Before: K individual queries in loop (K = stock count)
+        # After: 1 batch query + dictionary lookup
+        user_ids = [UUID(ranking["user_id"]) for ranking in top_k]
+        bids_dict: dict[str, Bid] = {}
+        if user_ids:
+            bids_result = await self.db.execute(
+                select(Bid).where(
+                    and_(
+                        Bid.campaign_id == campaign_id,
+                        Bid.user_id.in_(user_ids)
+                    )
+                )
+            )
+            bids_dict = {str(b.user_id): b for b in bids_result.scalars().all()}
+
         orders = []
 
         for ranking in top_k:
@@ -105,16 +121,8 @@ class SettlementService:
                 continue
 
             try:
-                # Get bid to get the final price
-                bid_result = await self.db.execute(
-                    select(Bid).where(
-                        and_(
-                            Bid.campaign_id == campaign_id,
-                            Bid.user_id == user_id,
-                        )
-                    )
-                )
-                bid = bid_result.scalar_one_or_none()
+                # Get bid from pre-fetched dictionary (O(1) lookup instead of DB query)
+                bid = bids_dict.get(str(user_id))
 
                 if not bid:
                     # No bid found, rollback stock

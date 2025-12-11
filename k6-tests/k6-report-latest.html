@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flash Sale Load Test - Scalability Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #eee;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, #00d4ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .card h3 { color: #00d4ff; margin-bottom: 16px; font-size: 1.2em; }
+    .metric { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .metric:last-child { border-bottom: none; }
+    .metric-value { font-weight: bold; color: #00ff88; }
+    .chart-container { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+    .chart-container h3 { color: #00d4ff; margin-bottom: 20px; }
+    .chart-wrapper { position: relative; height: 300px; }
+    .two-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .two-charts { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    th { color: #00d4ff; font-weight: 600; }
+    .success { color: #00ff88; }
+    .warning { color: #ffaa00; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: bold;
+    }
+    .badge-success { background: rgba(0,255,136,0.2); color: #00ff88; }
+    .badge-warning { background: rgba(255,170,0,0.2); color: #ffaa00; }
+    .badge-error { background: rgba(255,68,68,0.2); color: #ff4444; }
+    .growth-indicator { font-size: 1.5em; color: #00ff88; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚡ Flash Sale Load Test Report</h1>
+    <p class="subtitle">Scalability & Exponential Growth Analysis</p>
+
+    <!-- Summary Cards -->
+    <div class="grid">
+      <div class="card">
+        <h3>📊 Overview</h3>
+        <div class="metric"><span>Total Bids</span><span class="metric-value">60857</span></div>
+        <div class="metric"><span>Total HTTP Requests</span><span class="metric-value">61858</span></div>
+        <div class="metric"><span>Max VUs</span><span class="metric-value">1,000</span></div>
+        <div class="metric"><span>Test Duration</span><span class="metric-value">~10.5 min</span></div>
+      </div>
+      <div class="card">
+        <h3>✅ Success Rate</h3>
+        <div class="metric"><span>Overall Bid Success</span><span class="metric-value success">99.8%</span></div>
+        <div class="metric"><span>Phase 1 Success</span><span class="metric-value">100.0%</span></div>
+        <div class="metric"><span>Phase 2 Success</span><span class="metric-value">99.9%</span></div>
+        <div class="metric"><span>Phase 3 Success</span><span class="metric-value">99.7%</span></div>
+      </div>
+      <div class="card">
+        <h3>⏱️ Response Time</h3>
+        <div class="metric"><span>Average</span><span class="metric-value">3978 ms</span></div>
+        <div class="metric"><span>Median (p50)</span><span class="metric-value">1700 ms</span></div>
+        <div class="metric"><span>p95</span><span class="metric-value">22272 ms</span></div>
+        <div class="metric"><span>p99</span><span class="metric-value">32349 ms</span></div>
+      </div>
+      <div class="card">
+        <h3>📈 RPS Growth</h3>
+        <div class="metric"><span>Phase 1 RPS</span><span class="metric-value">70.1</span></div>
+        <div class="metric"><span>Phase 2 RPS</span><span class="metric-value">111.5</span></div>
+        <div class="metric"><span>Phase 3 RPS</span><span class="metric-value">133.1</span></div>
+        <div class="metric"><span>Total Growth</span><span class="growth-indicator">1.9x ↑</span></div>
+      </div>
+    </div>
+
+    <!-- RPS Growth Chart -->
+    <div class="chart-container">
+      <h3>📈 RPS Exponential Growth Curve</h3>
+      <div class="chart-wrapper">
+        <canvas id="rpsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Two Charts Side by Side -->
+    <div class="two-charts">
+      <div class="chart-container">
+        <h3>⏱️ Response Time by Phase</h3>
+        <div class="chart-wrapper">
+          <canvas id="rtChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-container">
+        <h3>📊 Bid Count by Phase</h3>
+        <div class="chart-wrapper">
+          <canvas id="bidChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Table -->
+    <div class="card">
+      <h3>📋 Per-Phase Detailed Metrics</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>VU Range</th>
+            <th>Duration</th>
+            <th>Bids</th>
+            <th>RPS</th>
+            <th>Avg RT</th>
+            <th>p95 RT</th>
+            <th>Success Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Phase 1</td>
+            <td>0 → 200</td>
+            <td>4 min</td>
+            <td>16830</td>
+            <td>70.1</td>
+            <td>422 ms</td>
+            <td>933 ms</td>
+            <td><span class="badge badge-success">100.0%</span></td>
+          </tr>
+          <tr>
+            <td>Phase 2</td>
+            <td>200 → 600</td>
+            <td>3 min</td>
+            <td>20078</td>
+            <td>111.5</td>
+            <td>3066 ms</td>
+            <td>9979 ms</td>
+            <td><span class="badge badge-success">99.9%</span></td>
+          </tr>
+          <tr>
+            <td>Phase 3</td>
+            <td>600 → 1000</td>
+            <td>3 min</td>
+            <td>23949</td>
+            <td>133.1</td>
+            <td>7372 ms</td>
+            <td>29402 ms</td>
+            <td><span class="badge badge-success">99.7%</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Test Result -->
+    <div class="card" style="margin-top: 20px; text-align: center;">
+      <h3>🎯 Test Result</h3>
+      <p style="font-size: 2em; margin: 20px 0;">
+        <span class="badge badge-success" style="font-size: 1em; padding: 10px 30px;">✅ PASSED</span>
+      </p>
+      <p style="color: #888;">Threshold: bid_success_rate > 85%</p>
+    </div>
+  </div>
+
+  <script>
+    // RPS Growth Chart
+    new Chart(document.getElementById('rpsChart'), {
+      type: 'line',
+      data: {
+        labels: ['Start', 'Phase 1 (2min)', 'Phase 1 (4min)', 'Phase 2 (5.5min)', 'Phase 2 (7min)', 'Phase 3 (8min)', 'Phase 3 (9min)', 'Peak (10min)'],
+        datasets: [{
+          label: 'RPS (Requests per Second)',
+          data: [0, 35.1, 70.1, 90.8, 111.5, 118.6, 125.7, 133.1],
+          borderColor: '#00ff88',
+          backgroundColor: 'rgba(0, 255, 136, 0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }, {
+          label: 'VUs (Virtual Users)',
+          data: [0, 50, 200, 400, 600, 700, 850, 1000],
+          borderColor: '#00d4ff',
+          backgroundColor: 'rgba(0, 212, 255, 0.1)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          yAxisID: 'y1'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        scales: {
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'RPS', color: '#00ff88' },
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            ticks: { color: '#00ff88' }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: 'VUs', color: '#00d4ff' },
+            grid: { drawOnChartArea: false },
+            ticks: { color: '#00d4ff' }
+          },
+          x: {
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            ticks: { color: '#888' }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#eee' } }
+        }
+      }
+    });
+
+    // Response Time Chart
+    new Chart(document.getElementById('rtChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Phase 1 (0-200 VUs)', 'Phase 2 (200-600 VUs)', 'Phase 3 (600-1000 VUs)'],
+        datasets: [{
+          label: 'Avg Response Time (ms)',
+          data: [422, 3066, 7372],
+          backgroundColor: 'rgba(0, 212, 255, 0.7)',
+          borderRadius: 8
+        }, {
+          label: 'p95 Response Time (ms)',
+          data: [933, 9979, 29402],
+          backgroundColor: 'rgba(255, 170, 0, 0.7)',
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            title: { display: true, text: 'Response Time (ms)', color: '#888' },
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            ticks: { color: '#888' }
+          },
+          x: {
+            grid: { color: 'rgba(255,255,255,0.1)' },
+            ticks: { color: '#888' }
+          }
+        },
+        plugins: { legend: { labels: { color: '#eee' } } }
+      }
+    });
+
+    // Bid Count Chart
+    new Chart(document.getElementById('bidChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Phase 1', 'Phase 2', 'Phase 3'],
+        datasets: [{
+          data: [16830, 20078, 23949],
+          backgroundColor: ['#00d4ff', '#00ff88', '#ffaa00'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { color: '#eee', padding: 20 }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

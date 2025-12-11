@@ -1,8 +1,10 @@
-# Backend HPA - Aggressive scaling for 1000 VU load testing
+# Backend HPA - Optimized for 12 vCPU quota limit
 # Optimized for single-worker-per-pod strategy with uvloop
 # Connection formula (with PgBouncer):
-#   App side: maxReplicas × 1 worker × (pool_size + max_overflow) = 50 × 1 × (8+15) = 1150 max app connections
+#   App side: maxReplicas × 1 worker × (pool_size + max_overflow) = 12 × 1 × (8+15) = 276 max app connections
 #   DB side: PgBouncer 6 pods × 30 max_db_connections = 180 (Cloud SQL max_connections: 200)
+# CPU Budget: 12 cores total - 2 system - 1 other = ~9 cores for backend
+#   Max pods: 9 / 0.5 = 18, conservative: 12
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -13,8 +15,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: 5         # Higher baseline for flash sale readiness
-  maxReplicas: 50        # Increased for aggressive horizontal scaling
+  minReplicas: 2         # Reduced for 12 vCPU quota
+  maxReplicas: 5         # Limited by SSD quota (250 GB limit in us-central1)
   metrics:
     - type: Resource
       resource:

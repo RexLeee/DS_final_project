@@ -15,7 +15,7 @@ def get_redis_pool() -> ConnectionPool:
     if redis_pool is None:
         redis_pool = ConnectionPool.from_url(
             settings.REDIS_URL,
-            max_connections=100,           # Increased for high concurrency (was 50)
+            max_connections=200,           # Increased for 1000 VU load testing (was 100)
             decode_responses=True,
             encoding="utf-8",
             socket_timeout=10.0,           # Increased to handle high load (was 2.0)

@@ -8,7 +8,7 @@ set -e
 # ============================================
 # Configuration
 # ============================================
-export PROJECT_ID="ds-final-project-480207"
+export PROJECT_ID="dsfinal-480908"
 export REGION="us-central1"
 export ZONE="us-central1-a"
 export CLUSTER_NAME="flash-sale-cluster"
@@ -337,12 +337,17 @@ EOF
     kubectl apply -f ${K8S_DIR}/namespace.yaml
     kubectl apply -f ${K8S_DIR}/configmap.yaml
     kubectl apply -f ${K8S_DIR}/secrets.yaml
+    kubectl apply -f ${K8S_DIR}/backend-config.yaml
     kubectl apply -f ${K8S_DIR}/pgbouncer-deployment.yaml
     kubectl apply -f ${K8S_DIR}/backend-deployment.yaml
     kubectl apply -f ${K8S_DIR}/frontend-deployment.yaml
     kubectl apply -f ${K8S_DIR}/services.yaml
     kubectl apply -f ${K8S_DIR}/ingress.yaml
     kubectl apply -f ${K8S_DIR}/hpa.yaml
+
+    echo_info "Restarting deployments to pull latest images..."
+    kubectl rollout restart deployment/backend -n flash-sale
+    kubectl rollout restart deployment/frontend -n flash-sale
 
     echo_info "Waiting for deployments to be ready..."
     kubectl rollout status deployment/pgbouncer -n flash-sale --timeout=300s
@@ -356,7 +361,9 @@ EOF
 run_migration() {
     echo_info "Running database migration..."
 
-    # Get Cloud SQL IP
+    # Get Cloud SQL IP (direct connection, bypassing PgBouncer)
+    # PgBouncer's transaction pooling is incompatible with Alembic migrations
+    # which use advisory locks and long-running DDL operations
     CLOUD_SQL_IP=$(gcloud sql instances describe $SQL_INSTANCE --format='value(ipAddresses[0].ipAddress)')
     echo_info "Cloud SQL IP: $CLOUD_SQL_IP"
 
@@ -365,14 +372,36 @@ run_migration() {
     read -s DB_PASSWORD
     echo
 
+    # Direct connection URL (bypasses PgBouncer)
     DATABASE_URL="postgresql+asyncpg://postgres:${DB_PASSWORD}@${CLOUD_SQL_IP}:5432/flash_sale"
 
-    kubectl run migrate --rm -it \
-        --image=${REGISTRY}/backend:latest \
-        --namespace=flash-sale \
-        --restart=Never \
-        --env="DATABASE_URL=${DATABASE_URL}" \
-        -- alembic upgrade head
+    # Wait for backend deployment to be ready
+    echo_info "Waiting for backend pods to be ready..."
+    kubectl rollout status deployment/backend -n flash-sale --timeout=300s
+
+    # Get a running backend pod name
+    BACKEND_POD=$(kubectl get pods -n flash-sale -l app=backend -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+    if [[ -z "$BACKEND_POD" ]]; then
+        echo_error "No backend pod found. Please ensure backend deployment is running."
+        return 1
+    fi
+
+    echo_info "Running migration on pod: $BACKEND_POD"
+    echo_info "Using direct Cloud SQL connection (bypassing PgBouncer)..."
+
+    # Execute migration using kubectl exec with direct DATABASE_URL
+    # This overrides the pod's default DATABASE_URL (which points to PgBouncer)
+    kubectl exec -n flash-sale "$BACKEND_POD" -- \
+        env DATABASE_URL="$DATABASE_URL" \
+        /app/.venv/bin/alembic upgrade head
+
+    if [[ $? -eq 0 ]]; then
+        echo_info "Migration completed successfully!"
+    else
+        echo_error "Migration failed. Check the logs above for details."
+        return 1
+    fi
 }
 
 # ============================================

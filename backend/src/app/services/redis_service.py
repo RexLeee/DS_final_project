@@ -508,6 +508,84 @@ return 0
         value = await self.redis.get(key)
         return float(value) if value is not None else None
 
+    # ==================== Product Cache Operations ====================
+
+    PRODUCT_CACHE_TTL = 3600  # 1 hour TTL for product cache
+
+    async def cache_product(self, product_id: str, product_data: dict[str, Any]) -> None:
+        """Cache product data in Redis Hash.
+
+        Key pattern: product:{product_id}
+
+        Args:
+            product_id: Product UUID string
+            product_data: Product data dict (id, name, min_price, stock)
+        """
+        key = f"product:{product_id}"
+        string_data = {k: str(v) for k, v in product_data.items()}
+        pipe = self.redis.pipeline()
+        pipe.hset(key, mapping=string_data)
+        pipe.expire(key, self.PRODUCT_CACHE_TTL)
+        await pipe.execute()
+
+    async def get_cached_product(self, product_id: str) -> dict[str, Any] | None:
+        """Get cached product data with type conversion.
+
+        Args:
+            product_id: Product UUID string
+
+        Returns:
+            Product data dict with proper types or None if not cached
+        """
+        key = f"product:{product_id}"
+        data = await self.redis.hgetall(key)
+        if not data:
+            return None
+        return {
+            "id": data.get("id"),
+            "name": data.get("name"),
+            "min_price": float(data["min_price"]) if "min_price" in data else None,
+            "stock": int(data["stock"]) if "stock" in data else None,
+        }
+
+    # ==================== Campaign Stats Snapshot Cache ====================
+
+    STATS_CACHE_TTL = 5  # 5 seconds TTL for stats snapshot
+
+    async def cache_campaign_stats_snapshot(
+        self, campaign_id: str, stats: dict[str, Any]
+    ) -> None:
+        """Cache campaign stats snapshot to reduce Redis calls.
+
+        Stores pre-computed stats (total_participants, max_score, min_winning_score)
+        with short TTL for real-time accuracy.
+
+        Args:
+            campaign_id: Campaign UUID string
+            stats: Stats dict from get_campaign_stats_batch
+        """
+        import json
+        key = f"campaign_stats_snapshot:{campaign_id}"
+        await self.redis.setex(key, self.STATS_CACHE_TTL, json.dumps(stats))
+
+    async def get_cached_campaign_stats_snapshot(
+        self, campaign_id: str
+    ) -> dict[str, Any] | None:
+        """Get cached campaign stats snapshot.
+
+        Args:
+            campaign_id: Campaign UUID string
+
+        Returns:
+            Stats dict or None if not cached/expired
+        """
+        import json
+        key = f"campaign_stats_snapshot:{campaign_id}"
+        data = await self.redis.get(key)
+        if data:
+            return json.loads(data)
+        return None
+
     # ==================== Campaign Stats Batch Operations ====================
 
     async def get_campaign_stats_batch(

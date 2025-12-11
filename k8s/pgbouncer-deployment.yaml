@@ -46,13 +46,13 @@ spec:
             - name: MAX_CLIENT_CONN
               value: "2000"           # Increased for high concurrency (was 1000)
             - name: DEFAULT_POOL_SIZE
-              value: "20"             # Increased for better throughput (was 15)
+              value: "30"             # Increased for lower latency (was 20)
             - name: MIN_POOL_SIZE
               value: "5"
             - name: RESERVE_POOL_SIZE
-              value: "10"             # Burst capacity
+              value: "15"             # Burst capacity (increased from 10)
             - name: MAX_DB_CONNECTIONS
-              value: "30"             # 6 pods × 30 = 180 (Cloud SQL needs max_connections=200)
+              value: "50"             # 2 pods × 50 = 100 (Cloud SQL max_connections=200)
             - name: QUERY_TIMEOUT
               value: "30"             # Increased for high concurrency (was 10)
             - name: CLIENT_IDLE_TIMEOUT

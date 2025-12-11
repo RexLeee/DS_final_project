@@ -90,6 +90,18 @@ class CampaignService:
         if self.redis_service:
             campaign_id_str = str(campaign_id)
 
+            # P5 Optimization: Try stats snapshot cache first (5s TTL)
+            # This eliminates 3 Redis ZSET operations for frequently accessed stats
+            cached_stats = await self.redis_service.get_cached_campaign_stats_snapshot(campaign_id_str)
+            if cached_stats:
+                stats.total_participants = cached_stats.get("total_participants", 0)
+                stats.min_winning_score = cached_stats.get("min_winning_score")
+                # Still get fresh max_price since it changes frequently
+                max_price = await self.redis_service.get_max_price(campaign_id_str)
+                if max_price is not None:
+                    stats.max_price = max_price
+                return stats
+
             # P1 Optimization: Use batch method for all Redis stats (3 RTT → 1 RTT)
             # Before: 3 separate Redis calls (get_total_participants, get_max_score, get_min_winning_score)
             # After: 1 pipeline call with all 3 queries
@@ -107,6 +119,18 @@ class CampaignService:
                     min_winning = batch_stats["min_winning_score"]
                     if min_winning is not None:
                         stats.min_winning_score = min_winning
+
+            # P5 Optimization: Cache stats snapshot for 5 seconds
+            import asyncio
+            asyncio.create_task(
+                self.redis_service.cache_campaign_stats_snapshot(
+                    campaign_id_str,
+                    {
+                        "total_participants": stats.total_participants,
+                        "min_winning_score": stats.min_winning_score,
+                    }
+                )
+            )
 
             # P1 Optimization: Get max_price from Redis cache if available
             max_price = await self.redis_service.get_max_price(campaign_id_str)

@@ -155,6 +155,19 @@ class BidService:
         # Store in local cache (P3: TTLCache handles expiration)
         _campaign_local_cache[campaign_id_str] = typed_data
 
+        # Cache product data for faster lookups (P5 optimization)
+        asyncio.create_task(
+            self.redis_service.cache_product(
+                str(campaign.product_id),
+                {
+                    "id": str(campaign.product_id),
+                    "name": campaign.product.name,
+                    "min_price": campaign.product.min_price,
+                    "stock": campaign.product.stock,
+                }
+            )
+        )
+
         now = datetime.now(timezone.utc)
         if now < start:
             return typed_data, "CAMPAIGN_NOT_STARTED"

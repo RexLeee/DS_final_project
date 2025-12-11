@@ -68,30 +68,30 @@
     <div class="grid">
       <div class="card">
         <h3>📊 Overview</h3>
-        <div class="metric"><span>Total Bids</span><span class="metric-value">60857</span></div>
-        <div class="metric"><span>Total HTTP Requests</span><span class="metric-value">61858</span></div>
+        <div class="metric"><span>Total Bids</span><span class="metric-value">64410</span></div>
+        <div class="metric"><span>Total HTTP Requests</span><span class="metric-value">65411</span></div>
         <div class="metric"><span>Max VUs</span><span class="metric-value">1,000</span></div>
         <div class="metric"><span>Test Duration</span><span class="metric-value">~10.5 min</span></div>
       </div>
       <div class="card">
         <h3>✅ Success Rate</h3>
-        <div class="metric"><span>Overall Bid Success</span><span class="metric-value success">99.8%</span></div>
-        <div class="metric"><span>Phase 1 Success</span><span class="metric-value">100.0%</span></div>
+        <div class="metric"><span>Overall Bid Success</span><span class="metric-value success">99.9%</span></div>
+        <div class="metric"><span>Phase 1 Success</span><span class="metric-value">99.9%</span></div>
         <div class="metric"><span>Phase 2 Success</span><span class="metric-value">99.9%</span></div>
-        <div class="metric"><span>Phase 3 Success</span><span class="metric-value">99.7%</span></div>
+        <div class="metric"><span>Phase 3 Success</span><span class="metric-value">99.8%</span></div>
       </div>
       <div class="card">
         <h3>⏱️ Response Time</h3>
-        <div class="metric"><span>Average</span><span class="metric-value">3978 ms</span></div>
-        <div class="metric"><span>Median (p50)</span><span class="metric-value">1700 ms</span></div>
-        <div class="metric"><span>p95</span><span class="metric-value">22272 ms</span></div>
-        <div class="metric"><span>p99</span><span class="metric-value">32349 ms</span></div>
+        <div class="metric"><span>Average</span><span class="metric-value">3718 ms</span></div>
+        <div class="metric"><span>Median (p50)</span><span class="metric-value">698 ms</span></div>
+        <div class="metric"><span>p95</span><span class="metric-value">22047 ms</span></div>
+        <div class="metric"><span>p99</span><span class="metric-value">29742 ms</span></div>
       </div>
       <div class="card">
         <h3>📈 RPS Growth</h3>
-        <div class="metric"><span>Phase 1 RPS</span><span class="metric-value">70.1</span></div>
-        <div class="metric"><span>Phase 2 RPS</span><span class="metric-value">111.5</span></div>
-        <div class="metric"><span>Phase 3 RPS</span><span class="metric-value">133.1</span></div>
+        <div class="metric"><span>Phase 1 RPS</span><span class="metric-value">72.3</span></div>
+        <div class="metric"><span>Phase 2 RPS</span><span class="metric-value">125.6</span></div>
+        <div class="metric"><span>Phase 3 RPS</span><span class="metric-value">135.9</span></div>
         <div class="metric"><span>Total Growth</span><span class="growth-indicator">1.9x ↑</span></div>
       </div>
     </div>
@@ -141,31 +141,31 @@
             <td>Phase 1</td>
             <td>0 → 200</td>
             <td>4 min</td>
-            <td>16830</td>
-            <td>70.1</td>
-            <td>422 ms</td>
-            <td>933 ms</td>
-            <td><span class="badge badge-success">100.0%</span></td>
+            <td>17353</td>
+            <td>72.3</td>
+            <td>382 ms</td>
+            <td>917 ms</td>
+            <td><span class="badge badge-success">99.9%</span></td>
           </tr>
           <tr>
             <td>Phase 2</td>
             <td>200 → 600</td>
             <td>3 min</td>
-            <td>20078</td>
-            <td>111.5</td>
-            <td>3066 ms</td>
-            <td>9979 ms</td>
+            <td>22603</td>
+            <td>125.6</td>
+            <td>2639 ms</td>
+            <td>10153 ms</td>
             <td><span class="badge badge-success">99.9%</span></td>
           </tr>
           <tr>
             <td>Phase 3</td>
             <td>600 → 1000</td>
             <td>3 min</td>
-            <td>23949</td>
-            <td>133.1</td>
-            <td>7372 ms</td>
-            <td>29402 ms</td>
-            <td><span class="badge badge-success">99.7%</span></td>
+            <td>24454</td>
+            <td>135.9</td>
+            <td>7199 ms</td>
+            <td>26635 ms</td>
+            <td><span class="badge badge-success">99.8%</span></td>
           </tr>
         </tbody>
       </table>
@@ -189,7 +189,7 @@
         labels: ['Start', 'Phase 1 (2min)', 'Phase 1 (4min)', 'Phase 2 (5.5min)', 'Phase 2 (7min)', 'Phase 3 (8min)', 'Phase 3 (9min)', 'Peak (10min)'],
         datasets: [{
           label: 'RPS (Requests per Second)',
-          data: [0, 35.1, 70.1, 90.8, 111.5, 118.6, 125.7, 133.1],
+          data: [0, 36.2, 72.3, 98.9, 125.6, 129.0, 132.4, 135.9],
           borderColor: '#00ff88',
           backgroundColor: 'rgba(0, 255, 136, 0.1)',
           fill: true,
@@ -245,12 +245,12 @@
         labels: ['Phase 1 (0-200 VUs)', 'Phase 2 (200-600 VUs)', 'Phase 3 (600-1000 VUs)'],
         datasets: [{
           label: 'Avg Response Time (ms)',
-          data: [422, 3066, 7372],
+          data: [382, 2639, 7199],
           backgroundColor: 'rgba(0, 212, 255, 0.7)',
           borderRadius: 8
         }, {
           label: 'p95 Response Time (ms)',
-          data: [933, 9979, 29402],
+          data: [917, 10153, 26635],
           backgroundColor: 'rgba(255, 170, 0, 0.7)',
           borderRadius: 8
         }]
@@ -279,7 +279,7 @@
       data: {
         labels: ['Phase 1', 'Phase 2', 'Phase 3'],
         datasets: [{
-          data: [16830, 20078, 23949],
+          data: [17353, 22603, 24454],
           backgroundColor: ['#00d4ff', '#00ff88', '#ffaa00'],
           borderWidth: 0
         }]

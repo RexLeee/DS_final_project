@@ -327,54 +327,78 @@
             <!-- ========== Slide 3: 專案目標 ========== -->
             <section>
                 <h2>專案目標與核心功能</h2>
-                <div class="highlight-box" style="font-size: 0.8em;">
-                    專為<strong style="color: #00d9ff;">高並發場景</strong>設計的即時競標系統<br>
-                    活動結束時，排名前 K 名用戶自動成為得標者
+                <div class="highlight-box" style="font-size: 0.7em; padding: 6px 12px;">
+                    專為<strong style="color: #00d9ff;">高並發場景</strong>設計的即時競標系統，活動結束時排名前 K 名用戶自動成為得標者
                 </div>
-                <div style="margin: 20px 0;">
-                    <div class="metric-card">
-                        <div class="value">1000+</div>
-                        <div class="label">並發用戶 VUs</div>
+                <div style="margin: 8px 0;">
+                    <div class="metric-card" style="padding: 6px 10px; min-width: 80px;">
+                        <div class="value" style="font-size: 1em;">1000+</div>
+                        <div class="label" style="font-size: 0.5em;">並發用戶 VUs</div>
                     </div>
-                    <div class="metric-card">
-                        <div class="value">毫秒級</div>
-                        <div class="label">出價響應</div>
+                    <div class="metric-card" style="padding: 6px 10px; min-width: 80px;">
+                        <div class="value" style="font-size: 1em;">毫秒級</div>
+                        <div class="label" style="font-size: 0.5em;">出價響應</div>
                     </div>
-                    <div class="metric-card">
-                        <div class="value">O(log N)</div>
-                        <div class="label">排名查詢</div>
+                    <div class="metric-card" style="padding: 6px 10px; min-width: 80px;">
+                        <div class="value" style="font-size: 1em;">O(log N)</div>
+                        <div class="label" style="font-size: 0.5em;">排名查詢</div>
                     </div>
-                    <div class="metric-card">
-                        <div class="value">100%</div>
-                        <div class="label">庫存一致性</div>
+                    <div class="metric-card" style="padding: 6px 10px; min-width: 80px;">
+                        <div class="value" style="font-size: 1em;">100%</div>
+                        <div class="label" style="font-size: 0.5em;">庫存一致性</div>
                     </div>
                 </div>
-                <div
-                    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 25px; padding: 0 20px;">
-                    <div
-                        style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 4px solid #00d9ff; padding: 20px 24px; border-radius: 10px; text-align: left;">
-                        <div style="font-size: 0.75em; color: #00d9ff; font-weight: bold; margin-bottom: 8px;">⚡ 即時競標
+                <div style="display: flex; gap: 20px; padding: 0 30px; align-items: stretch;">
+                    <!-- 左側：核心功能（垂直排列） -->
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="font-size: 0.75em; color: #00d9ff; font-weight: bold; margin-bottom: 2px;">核心功能</div>
+                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 3px solid #00d9ff; padding: 10px 16px; border-radius: 6px; text-align: left; display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 0.7em; color: #00d9ff; font-weight: bold; white-space: nowrap;">⚡ 即時競標</div>
+                            <div style="font-size: 0.52em; color: #94a3b8;">用戶出價，系統即時計算排名</div>
                         </div>
-                        <div style="font-size: 0.55em; color: #94a3b8; line-height: 1.5;">用戶對商品出價，系統即時計算排名</div>
+                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 3px solid #10b981; padding: 10px 16px; border-radius: 6px; text-align: left; display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 0.7em; color: #10b981; font-weight: bold; white-space: nowrap;">⏰ 限時搶購</div>
+                            <div style="font-size: 0.52em; color: #94a3b8;">活動結束，前 K 名自動得標</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 3px solid #f59e0b; padding: 10px 16px; border-radius: 6px; text-align: left; display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 0.7em; color: #f59e0b; font-weight: bold; white-space: nowrap;">🛡️ 庫存保護</div>
+                            <div style="font-size: 0.52em; color: #94a3b8;">四層防超賣機制 <span style="color: #00d9ff;">(orders ≤ stock)</span></div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 3px solid #8b5cf6; padding: 10px 16px; border-radius: 6px; text-align: left; display: flex; align-items: center; gap: 12px;">
+                            <div style="font-size: 0.7em; color: #8b5cf6; font-weight: bold; white-space: nowrap;">📡 即時推播</div>
+                            <div style="font-size: 0.52em; color: #94a3b8;">WebSocket 推送排名與結果</div>
+                        </div>
                     </div>
-                    <div
-                        style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 4px solid #10b981; padding: 20px 24px; border-radius: 10px; text-align: left;">
-                        <div style="font-size: 0.75em; color: #10b981; font-weight: bold; margin-bottom: 8px;">⏰ 限時搶購
+                    <!-- 右側：CAP 理論 -->
+                    <div style="flex: 1; background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-radius: 10px; padding: 12px 20px;">
+                        <div style="font-size: 0.75em; color: #00d9ff; font-weight: bold; margin-bottom: 10px; text-align: center;">分散式設計選擇 — CAP 理論</div>
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <!-- CAP 三角形 -->
+                            <div style="flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;">
+                                <div style="font-size: 0.55em; color: #10b981; font-weight: bold; margin-bottom: 2px;">C</div>
+                                <div style="width: 0; height: 0; border-left: 60px solid transparent; border-right: 60px solid transparent; border-bottom: 104px solid #1e3a5f; position: relative;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; width: 120px; margin-top: 3px;">
+                                    <span style="font-size: 0.55em; color: #f59e0b; font-weight: bold;">A</span>
+                                    <span style="font-size: 0.55em; color: #10b981; font-weight: bold;">P</span>
+                                </div>
+                            </div>
+                            <!-- 說明文字 -->
+                            <div style="font-size: 0.55em; text-align: left; flex: 1;">
+                                <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 12px; border-radius: 4px; margin-bottom: 6px;">
+                                    <span style="color: #10b981;">✓</span> <strong>一致性 (C)</strong><br>
+                                    <span style="color: #94a3b8; font-size: 0.9em;">庫存絕對不能超賣</span>
+                                </div>
+                                <div style="background: rgba(16, 185, 129, 0.15); padding: 8px 12px; border-radius: 4px; margin-bottom: 6px;">
+                                    <span style="color: #10b981;">✓</span> <strong>分區容錯 (P)</strong><br>
+                                    <span style="color: #94a3b8; font-size: 0.9em;">網路故障不會整個崩潰</span>
+                                </div>
+                                <div style="background: rgba(245, 158, 11, 0.15); padding: 8px 12px; border-radius: 4px;">
+                                    <span style="color: #f59e0b;">⚠</span> <strong>可用性 (A)</strong><br>
+                                    <span style="color: #94a3b8; font-size: 0.9em;">拿不到鎖的請求會失敗</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style="font-size: 0.55em; color: #94a3b8; line-height: 1.5;">活動結束時，排名前 K 名用戶自動成為得標者</div>
-                    </div>
-                    <div
-                        style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 4px solid #f59e0b; padding: 20px 24px; border-radius: 10px; text-align: left;">
-                        <div style="font-size: 0.75em; color: #f59e0b; font-weight: bold; margin-bottom: 8px;">🛡️ 庫存保護
-                        </div>
-                        <div style="font-size: 0.55em; color: #94a3b8; line-height: 1.5;">四層防超賣機制確保庫存一致性<br><span
-                                style="color: #00d9ff;">(orders ≤ stock)</span></div>
-                    </div>
-                    <div
-                        style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); border-left: 4px solid #8b5cf6; padding: 20px 24px; border-radius: 10px; text-align: left;">
-                        <div style="font-size: 0.75em; color: #8b5cf6; font-weight: bold; margin-bottom: 8px;">📡 即時推播
-                        </div>
-                        <div style="font-size: 0.55em; color: #94a3b8; line-height: 1.5;">WebSocket 推送排名更新與活動結果</div>
                     </div>
                 </div>
             </section>

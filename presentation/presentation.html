@@ -196,47 +196,59 @@
             <!-- ========== Slide 3: 系統架構 ========== -->
             <section>
                 <h2>系統架構</h2>
-                <div class="arch-container">
-                    <div class="arch-box client">
+                <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
+                    <!-- Client Layer -->
+                    <div class="arch-box client" style="width: 320px; padding: 8px 20px;">
                         <strong>Client Layer</strong><br>
-                        React 18 + TypeScript + Vite
+                        用戶介面、即時排名顯示
                     </div>
-                    <div class="arch-arrow">▼ HTTP / WebSocket</div>
-                    <div class="arch-box ingress">
+                    <div class="arch-arrow" style="font-size: 0.6em; margin: 4px 0;">▼ HTTP / WebSocket</div>
+                    <!-- GCP Ingress -->
+                    <div class="arch-box ingress" style="width: 320px; padding: 8px 20px;">
                         <strong>GCP Ingress (L7)</strong><br>
-                        /api/* & /ws/* → Backend &nbsp;&nbsp; /* → Frontend
+                        流量分發、路由規則
                     </div>
-                    <div class="arch-arrow" style="display: flex; justify-content: center; gap: 180px;">
-                        <span>▼</span>
-                        <span>▼</span>
-                    </div>
-                    <div class="arch-row" style="align-items: flex-start;">
-                        <div class="arch-box service">
-                            <strong>Backend</strong><br>
-                            FastAPI + Uvicorn<br>
-                            5-50 Pods (HPA)
+                    <!-- 使用 CSS Grid 確保完美對齊 -->
+                    <div style="display: grid; grid-template-columns: 280px 160px; gap: 40px; margin-top: 4px;">
+                        <!-- 左欄：Backend 路徑 -->
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <div class="arch-arrow" style="font-size: 0.6em;">▼ /api/* & /ws/*</div>
+                            <div class="arch-box service" style="width: 240px; padding: 8px 16px; margin-top: 4px;">
+                                <strong>Backend</strong><br>
+                                API 處理、計分邏輯<br>WebSocket 推播
+                            </div>
+                            <!-- Redis 和 PgBouncer 用 grid 對齊 -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; width: 260px;">
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <div class="arch-arrow" style="font-size: 0.6em;">▼</div>
+                                    <div class="arch-box data" style="width: 120px; padding: 6px 10px; margin-top: 4px;">
+                                        <strong>Redis</strong><br>
+                                        排名快取<br>分散式鎖
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <div class="arch-arrow" style="font-size: 0.6em;">▼</div>
+                                    <div class="arch-box data" style="width: 120px; padding: 6px 10px; margin-top: 4px;">
+                                        <strong>PgBouncer</strong><br>
+                                        連線池<br>連線複用
+                                    </div>
+                                    <!-- PostgreSQL 在 PgBouncer 正下方 -->
+                                    <div class="arch-arrow" style="font-size: 0.6em; margin-top: 4px;">▼</div>
+                                    <div class="arch-box data" style="width: 120px; padding: 6px 10px; margin-top: 4px;">
+                                        <strong>PostgreSQL</strong><br>
+                                        持久化<br>交易一致性
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="arch-box service">
-                            <strong>Frontend</strong><br>
-                            Nginx + Static<br>
-                            1-5 Pods (HPA)
+                        <!-- 右欄：Frontend 路徑 -->
+                        <div style="display: flex; flex-direction: column; align-items: center;">
+                            <div class="arch-arrow" style="font-size: 0.6em;">▼ /*</div>
+                            <div class="arch-box service" style="width: 140px; padding: 8px 14px; margin-top: 4px;">
+                                <strong>Frontend</strong><br>
+                                靜態檔案服務<br>SPA 應用託管
+                            </div>
                         </div>
-                    </div>
-                    <div class="arch-arrow" style="margin-right: 160px;">▼</div>
-                    <div class="arch-row" style="margin-right: 160px;">
-                        <div class="arch-box data">
-                            <strong>Redis</strong><br>
-                            Memorystore<br>1GB
-                        </div>
-                        <div class="arch-box data">
-                            <strong>PgBouncer</strong><br>
-                            6 Pods<br>Transaction
-                        </div>
-                    </div>
-                    <div class="arch-arrow" style="margin-right: 160px;">▼</div>
-                    <div class="arch-box data" style="margin-right: 160px;">
-                        <strong>PostgreSQL</strong><br>
-                        Cloud SQL<br>2vCPU/4GB
                     </div>
                 </div>
             </section>

@@ -10,6 +10,7 @@ interface RankingBoardProps {
   myScore?: number | null;
   stock: number;
   isConnected: boolean;
+  isEnded?: boolean;  // Whether the campaign has ended
 }
 
 export default function RankingBoard({
@@ -22,8 +23,17 @@ export default function RankingBoard({
   myScore,
   stock,
   isConnected,
+  isEnded = false,
 }: RankingBoardProps) {
   const isWinningPosition = (rank: number) => rank <= stock;
+
+  // Get status text based on winning position and campaign state
+  const getStatusText = (isWinning: boolean) => {
+    if (isWinning) {
+      return isEnded ? '已得標' : '暫定得標';
+    }
+    return '未得標';
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -94,7 +104,7 @@ export default function RankingBoard({
                   : 'bg-yellow-200 text-yellow-800'
               }`}
             >
-              {isWinningPosition(myRank) ? '暫定得標' : '未得標'}
+              {getStatusText(isWinningPosition(myRank))}
             </span>
           </div>
         </div>
@@ -160,7 +170,7 @@ export default function RankingBoard({
                         ${isWinning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}
                       `}
                     >
-                      {isWinning ? '暫定得標' : '未得標'}
+                      {getStatusText(isWinning)}
                     </span>
                   </td>
                 </tr>

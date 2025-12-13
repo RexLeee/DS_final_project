@@ -247,6 +247,7 @@ export default function CampaignDetail() {
             myScore={wsState.myScore}
             stock={campaign.quota}
             isConnected={wsState.isConnected}
+            isEnded={campaign.status === 'ended'}
           />
         </div>
       </div>

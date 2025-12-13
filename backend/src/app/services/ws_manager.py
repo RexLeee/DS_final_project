@@ -111,7 +111,7 @@ class ConnectionManager:
     async def broadcast_to_campaign(
         self, campaign_id: str, message: dict[str, Any]
     ) -> int:
-        """Broadcast message to all users in a campaign room.
+        """Broadcast message to all users in a campaign room using concurrent sends.
 
         Args:
             campaign_id: Campaign UUID string
@@ -125,15 +125,36 @@ class ConnectionManager:
 
         # Create a copy to avoid modification during iteration
         connections = dict(self.active_connections.get(campaign_id, {}))
+
+        if not connections:
+            return 0
+
+        # Define async send function for each user
+        async def send_to_one(user_id: str, ws: WebSocket) -> tuple[str, bool]:
+            try:
+                await ws.send_json(message)
+                return (user_id, True)
+            except Exception as e:
+                logger.warning(f"Failed to broadcast to user {user_id}: {e}")
+                return (user_id, False)
+
+        # Send to all users concurrently using asyncio.gather
+        results = await asyncio.gather(
+            *[send_to_one(uid, ws) for uid, ws in connections.items()],
+            return_exceptions=True,
+        )
+
+        # Process results and clean up disconnected users
         sent_count = 0
         disconnected_users = []
 
-        for user_id, websocket in connections.items():
-            try:
-                await websocket.send_json(message)
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            user_id, success = result
+            if success:
                 sent_count += 1
-            except Exception as e:
-                logger.warning(f"Failed to broadcast to user {user_id}: {e}")
+            else:
                 disconnected_users.append(user_id)
 
         # Clean up disconnected users

@@ -174,6 +174,7 @@ class CampaignService:
             alpha=campaign_data.alpha,
             beta=campaign_data.beta,
             gamma=campaign_data.gamma,
+            quota=product.stock,  # 快照庫存作為得標名額
             status="pending",
         )
 

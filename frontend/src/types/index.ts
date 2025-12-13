@@ -54,6 +54,7 @@ export interface Campaign {
   alpha: number;
   beta: number;
   gamma: number;
+  quota: number;
   status: 'pending' | 'active' | 'ended';
   created_at: string;
   stats?: CampaignStats;

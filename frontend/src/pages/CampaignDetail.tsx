@@ -184,9 +184,9 @@ export default function CampaignDetail() {
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="text-gray-500">庫存</div>
+                  <div className="text-gray-500">可得標名額</div>
                   <div className="text-lg font-bold text-gray-800">
-                    {campaign.product.stock} 件
+                    {campaign.quota} 件
                   </div>
                 </div>
               </div>
@@ -245,7 +245,7 @@ export default function CampaignDetail() {
             currentUserId={user?.user_id}
             myRank={wsState.myRank}
             myScore={wsState.myScore}
-            stock={campaign.product.stock}
+            stock={campaign.quota}
             isConnected={wsState.isConnected}
           />
         </div>

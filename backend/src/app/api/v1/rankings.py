@@ -3,7 +3,6 @@
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
 from app.core.redis import get_redis
@@ -22,10 +21,9 @@ async def get_rankings(
     db: DbSession,
 ):
     """Get top K rankings for a campaign."""
-    # Get campaign with product to know K (stock)
+    # Get campaign to know K (quota)
     result = await db.execute(
         select(Campaign)
-        .options(selectinload(Campaign.product))
         .where(Campaign.campaign_id == campaign_id)
     )
     campaign = result.scalar_one_or_none()
@@ -36,7 +34,8 @@ async def get_rankings(
             detail="Campaign not found",
         )
 
-    stock = campaign.product.stock
+    # Use quota (snapshotted at creation) instead of product.stock (which decrements after settlement)
+    stock = campaign.quota
 
     redis_client = await get_redis()
     redis_service = RedisService(redis_client)
@@ -65,10 +64,9 @@ async def get_my_rank(
     current_user: CurrentUser,
 ):
     """Get current user's rank in a campaign."""
-    # Get campaign with product to know K (stock)
+    # Get campaign to know K (quota)
     result = await db.execute(
         select(Campaign)
-        .options(selectinload(Campaign.product))
         .where(Campaign.campaign_id == campaign_id)
     )
     campaign = result.scalar_one_or_none()
@@ -79,7 +77,8 @@ async def get_my_rank(
             detail="Campaign not found",
         )
 
-    stock = campaign.product.stock
+    # Use quota (snapshotted at creation) instead of product.stock (which decrements after settlement)
+    stock = campaign.quota
 
     redis_client = await get_redis()
     redis_service = RedisService(redis_client)

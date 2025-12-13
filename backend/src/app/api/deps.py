@@ -3,6 +3,7 @@
 import hashlib
 import json
 import random
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -42,6 +43,16 @@ def _user_from_cache(user_id: UUID, data: dict[str, str]) -> User:
     Returns:
         User instance (detached from session)
     """
+    # Parse created_at from cache, default to current time if missing
+    created_at_str = data.get("created_at")
+    if created_at_str:
+        try:
+            created_at = datetime.fromisoformat(created_at_str)
+        except ValueError:
+            created_at = datetime.utcnow()
+    else:
+        created_at = datetime.utcnow()
+
     # Create User instance normally (this initializes _sa_instance_state)
     user = User(
         email=data.get("email", ""),
@@ -51,9 +62,10 @@ def _user_from_cache(user_id: UUID, data: dict[str, str]) -> User:
         status=data.get("status", "active"),
         is_admin=data.get("is_admin", "False").lower() == "true",
     )
-    # Set user_id using object.__setattr__ to bypass SQLAlchemy instrumentation
-    # since user_id is typically set by the database
+    # Set user_id and created_at using object.__setattr__ to bypass SQLAlchemy instrumentation
+    # since these are typically set by the database
     object.__setattr__(user, 'user_id', user_id)
+    object.__setattr__(user, 'created_at', created_at)
     return user
 
 
@@ -145,6 +157,7 @@ async def get_current_user(
                         "weight": str(user.weight),
                         "status": user.status,
                         "is_admin": str(user.is_admin),
+                        "created_at": user.created_at.isoformat() if user.created_at else None,
                     },
                     ttl=USER_CACHE_TTL,
                 )
@@ -178,6 +191,7 @@ async def get_current_user(
             "weight": str(user.weight),
             "status": user.status,
             "is_admin": str(user.is_admin),
+            "created_at": user.created_at.isoformat() if user.created_at else None,
         },
         ttl=USER_CACHE_TTL,
     )

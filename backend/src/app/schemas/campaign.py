@@ -38,6 +38,7 @@ class CampaignResponse(BaseModel):
     alpha: Decimal
     beta: Decimal
     gamma: Decimal
+    quota: int
     status: str
     created_at: datetime
 
@@ -54,6 +55,7 @@ class CampaignDetailResponse(BaseModel):
     alpha: Decimal
     beta: Decimal
     gamma: Decimal
+    quota: int
     status: str
     stats: CampaignStats
     created_at: datetime
@@ -70,6 +72,7 @@ class CampaignWithProductResponse(BaseModel):
     alpha: Decimal
     beta: Decimal
     gamma: Decimal
+    quota: int
     status: str
     created_at: datetime
 

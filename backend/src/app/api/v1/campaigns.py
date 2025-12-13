@@ -42,6 +42,7 @@ async def list_campaigns(
             alpha=campaign.alpha,
             beta=campaign.beta,
             gamma=campaign.gamma,
+            quota=campaign.quota,
             status=service._get_campaign_status(campaign),
             created_at=campaign.created_at,
         )
@@ -67,8 +68,8 @@ async def get_campaign(
             detail="Campaign not found",
         )
 
-    # Get stats from Redis
-    stats = await service.get_stats(campaign_id, campaign.product.stock)
+    # Get stats from Redis (use quota for winner determination)
+    stats = await service.get_stats(campaign_id, campaign.quota)
 
     return CampaignDetailResponse(
         campaign_id=campaign.campaign_id,
@@ -78,6 +79,7 @@ async def get_campaign(
         alpha=campaign.alpha,
         beta=campaign.beta,
         gamma=campaign.gamma,
+        quota=campaign.quota,
         status=service._get_campaign_status(campaign),
         stats=stats,
         created_at=campaign.created_at,
@@ -121,6 +123,7 @@ async def create_campaign(
         alpha=campaign.alpha,
         beta=campaign.beta,
         gamma=campaign.gamma,
+        quota=campaign.quota,
         status=service._get_campaign_status(campaign),
         created_at=campaign.created_at,
     )

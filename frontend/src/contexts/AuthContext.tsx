@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import axios from 'axios';
 import type { User } from '../types';
 import { authApi } from '../api/auth';
 
@@ -27,9 +28,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = await authApi.getMe();
           setUser(userData);
           setToken(storedToken);
-        } catch {
-          localStorage.removeItem('token');
-          setToken(null);
+        } catch (error) {
+          // Only clear token on authentication errors (401)
+          // Keep token for network errors so user can retry
+          if (axios.isAxiosError(error) && error.response?.status === 401) {
+            localStorage.removeItem('token');
+            setToken(null);
+          }
+          // For other errors (network, 500, etc.), keep the token
+          // User can retry or the token might still be valid
         }
       }
       setIsLoading(false);

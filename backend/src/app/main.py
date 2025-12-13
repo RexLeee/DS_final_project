@@ -26,7 +26,10 @@ _settlement_check_task: asyncio.Task | None = None
 
 
 async def ranking_broadcast_loop():
-    """Background task to broadcast ranking updates every 2 seconds."""
+    """Background task to broadcast ranking updates every 2 seconds.
+
+    P1 Optimization: Uses Redis pipeline to reduce 5 RTT to 2 RTT per campaign.
+    """
     while True:
         try:
             # Get all active campaign rooms
@@ -45,15 +48,16 @@ async def ranking_broadcast_loop():
                         else:
                             k = 10  # fallback default
 
-                        # Get ranking data from Redis
-                        top_k = await redis_service.get_top_k(campaign_id, k)
-                        total_participants = await redis_service.get_total_participants(
-                            campaign_id
-                        )
-                        min_winning_score = await redis_service.get_min_winning_score(
+                        # P1 Optimization: Get all broadcast data in 2 pipeline calls
+                        # instead of 5 separate Redis calls
+                        broadcast_data = await redis_service.get_broadcast_data_with_details(
                             campaign_id, k
                         )
-                        max_score = await redis_service.get_max_score(campaign_id)
+
+                        top_k = broadcast_data["top_k"]
+                        total_participants = broadcast_data["total_participants"]
+                        min_winning_score = broadcast_data["min_winning_score"]
+                        max_score = broadcast_data["max_score"]
 
                         # Broadcast to all connected users
                         if top_k:  # Only broadcast if there are participants

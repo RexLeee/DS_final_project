@@ -115,6 +115,45 @@ function getTestUserEmail(vuNumber) {
   return `user${padded}@test.com`;
 }
 
+// Generate realistic bid price based on stage and user behavior
+// Min price: 800, simulates different bidding strategies
+function generateBidPrice(stage, vuNumber) {
+  const MIN_PRICE = 800;
+
+  // User strategy type based on VU number (consistent per user)
+  // 60% conservative, 30% moderate, 10% aggressive
+  const userType = vuNumber % 10;
+  const isAggressive = userType === 0;        // 10% aggressive bidders
+  const isModerate = userType >= 1 && userType <= 3;  // 30% moderate
+  // rest are conservative (60%)
+
+  // Base price ranges by stage (competition intensifies over time)
+  let baseMin, baseMax;
+  switch (stage) {
+    case 1:  // Early stage: conservative bidding
+      baseMin = MIN_PRICE;
+      baseMax = isAggressive ? 1100 : (isModerate ? 950 : 880);
+      break;
+    case 2:  // Mid stage: competition heats up
+      baseMin = isAggressive ? 900 : MIN_PRICE;
+      baseMax = isAggressive ? 1300 : (isModerate ? 1100 : 950);
+      break;
+    case 3:  // Final stage: aggressive bidding
+      baseMin = isAggressive ? 1000 : (isModerate ? 850 : MIN_PRICE);
+      baseMax = isAggressive ? 1500 : (isModerate ? 1200 : 1000);
+      break;
+    default:
+      baseMin = MIN_PRICE;
+      baseMax = 1000;
+  }
+
+  // Add randomness within the range
+  const range = baseMax - baseMin;
+  const price = baseMin + Math.floor(Math.random() * (range + 1));
+
+  return price;
+}
+
 
 
 
@@ -166,7 +205,10 @@ export default function (data) {
 
   // Step 2: Place a bid
   // Price must be >= product min_price (800 for Pro Max)
-  const price = 800;
+  // Realistic bidding: price varies by stage and user strategy
+  const elapsedSeconds = (Date.now() - data.startTime) / 1000;
+  const currentStage = getCurrentStage(elapsedSeconds);
+  const price = generateBidPrice(currentStage, __VU);
 
   const bidStart = Date.now();
   const bidRes = http.post(
@@ -193,10 +235,7 @@ export default function (data) {
   bidCounter.add(1);
   bidSuccessRate.add(bidOk ? 1 : 0);
 
-  // Track per-stage metrics
-  const elapsedSeconds = (Date.now() - data.startTime) / 1000;
-  const currentStage = getCurrentStage(elapsedSeconds);
-
+  // Track per-stage metrics (reuse currentStage calculated above)
   if (currentStage === 1) {
     stage1BidLatency.add(latency);
     stage1Bids.add(1);

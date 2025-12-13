@@ -621,6 +621,110 @@ return 0
             "min_winning_score": min_winning,
         }
 
+    async def get_broadcast_data(
+        self, campaign_id: str, k: int
+    ) -> dict[str, Any]:
+        """Get all data needed for ranking broadcast in a single pipeline call.
+
+        Combines:
+        - Top K users with scores
+        - Total participants
+        - Min winning score (Kth score)
+        - Max score
+
+        This reduces 5 Redis RTT to 1 RTT for the broadcast loop.
+
+        Args:
+            campaign_id: Campaign UUID string
+            k: Number of winning positions (stock/quota)
+
+        Returns:
+            Dict with top_k_raw, total_participants, min_winning_score, max_score
+        """
+        key = f"bid:{campaign_id}"
+
+        pipe = self.redis.pipeline()
+        pipe.zrevrange(key, 0, k - 1, withscores=True)  # Top K with scores
+        pipe.zcard(key)  # Total participants
+        pipe.zrevrange(key, k - 1, k - 1, withscores=True)  # Kth score (min winning)
+        pipe.zrevrange(key, 0, 0, withscores=True)  # Max score (rank 1)
+
+        results = await pipe.execute()
+
+        top_k_raw = results[0] if results[0] else []
+        total = results[1]
+        min_winning = float(results[2][0][1]) if results[2] else None
+        max_score = float(results[3][0][1]) if results[3] else None
+
+        return {
+            "top_k_raw": top_k_raw,
+            "total_participants": total,
+            "min_winning_score": min_winning,
+            "max_score": max_score,
+        }
+
+    async def get_broadcast_data_with_details(
+        self, campaign_id: str, k: int
+    ) -> dict[str, Any]:
+        """Get all data needed for ranking broadcast including user details.
+
+        This is a two-phase pipeline:
+        1. First pipeline: Get top K users with scores + stats
+        2. Second pipeline: Get user details for top K
+
+        Total: 2 RTT instead of 5+ RTT.
+
+        Args:
+            campaign_id: Campaign UUID string
+            k: Number of winning positions (stock/quota)
+
+        Returns:
+            Dict with top_k (with details), total_participants, min_winning_score, max_score
+        """
+        # Phase 1: Get top K and stats
+        broadcast_data = await self.get_broadcast_data(campaign_id, k)
+
+        top_k_raw = broadcast_data["top_k_raw"]
+        if not top_k_raw:
+            return {
+                "top_k": [],
+                "total_participants": broadcast_data["total_participants"],
+                "min_winning_score": broadcast_data["min_winning_score"],
+                "max_score": broadcast_data["max_score"],
+            }
+
+        # Phase 2: Get details for each user in top K
+        pipe = self.redis.pipeline()
+        for user_id, _ in top_k_raw:
+            details_key = f"bid_details:{campaign_id}:{user_id}"
+            pipe.hgetall(details_key)
+
+        details_results = await pipe.execute()
+
+        # Build top_k list with details
+        top_k = []
+        for (rank, (user_id, score)), details in zip(
+            enumerate(top_k_raw, start=1), details_results
+        ):
+            entry = {
+                "rank": rank,
+                "user_id": user_id,
+                "score": float(score),
+            }
+            if details:
+                if "price" in details:
+                    entry["price"] = float(details["price"])
+                if "username" in details:
+                    entry["username"] = details["username"]
+            top_k.append(entry)
+
+        return {
+            "top_k": top_k,
+            "total_participants": broadcast_data["total_participants"],
+            "min_winning_score": broadcast_data["min_winning_score"],
+            "max_score": broadcast_data["max_score"],
+        }
+
 
 # Dependency injection helper
 async def get_redis_service(redis: Redis) -> RedisService:

@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, String
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,6 +54,11 @@ class Campaign(Base):
         Numeric(10, 4),
         nullable=False,
         default=Decimal("100.0000"),
+    )
+    quota: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="得標名額 (創建時從 product.stock 快照)",
     )
     status: Mapped[str] = mapped_column(
         String(20),

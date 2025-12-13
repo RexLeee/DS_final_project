@@ -170,6 +170,7 @@ async def seed_campaign(session: AsyncSession, product: Product) -> Campaign:
         alpha=Decimal("1.0000"),
         beta=Decimal("1000.0000"),
         gamma=Decimal("100.0000"),
+        quota=product.stock,
         status="active",
     )
 

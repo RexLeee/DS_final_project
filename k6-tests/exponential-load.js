@@ -165,17 +165,15 @@ export default function (data) {
   }
 
   // Step 2: Place a bid
-  // Generate random price - basePrice must be >= product min_price (2000)
-  const basePrice = 2000;
-  const maxExtra = 1000;
-  const price = basePrice + Math.random() * maxExtra;
+  // Price must be >= product min_price (800 for Pro Max)
+  const price = 800;
 
   const bidStart = Date.now();
   const bidRes = http.post(
     `${BASE_URL}/api/v1/bids`,
     JSON.stringify({
       campaign_id: CAMPAIGN_ID,
-      price: Math.round(price * 100) / 100,
+      price: price,
     }),
     {
       headers: {

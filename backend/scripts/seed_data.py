@@ -2,19 +2,19 @@
 
 Creates:
 - 1 admin + 1000 test users with random weights (0.5-5.0)
-- 5 test products (first product configured for k6 load testing)
+- 1 test product: 高級耳機 Pro Max
 - 1 active campaign with configurable duration
 
 Environment Variables:
-    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 15)
+    CAMPAIGN_DURATION_MINUTES: Campaign duration in minutes (default: 20)
     RESET_DATA: Set to "true" to clear bids/orders/campaigns before seeding (default: false)
-    LOAD_TEST_STOCK: Stock quantity for load testing (default: 100)
+    LOAD_TEST_STOCK: Stock quantity for load testing (default: 15)
 
 Usage:
-    # First time setup (creates users & products)
+    # First time setup (creates users & product)
     uv run python -m scripts.seed_data
 
-    # Reset for load testing (clears bids/orders/campaigns, creates new 15-min campaign)
+    # Reset for load testing (clears bids/orders/campaigns, resets stock, creates new campaign)
     RESET_DATA=true uv run python -m scripts.seed_data
 
     # Custom duration (e.g., 30 minutes for longer tests)
@@ -23,8 +23,8 @@ Usage:
 k6 Test Integration:
     This script creates data compatible with k6-tests/exponential-load.js:
     - Users: user0001@test.com ~ user1000@test.com (password: password123)
-    - Product min_price: 2000.00 (k6 uses basePrice = 2000)
-    - Campaign duration: 15 minutes (k6 test runs ~10 minutes)
+    - Product: 高級耳機 Pro Max (min_price: 800.00, stock: 15)
+    - Campaign duration: 20 minutes
 """
 
 import asyncio
@@ -34,9 +34,9 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 # Configuration from environment variables
-CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "15"))
+CAMPAIGN_DURATION_MINUTES = int(os.getenv("CAMPAIGN_DURATION_MINUTES", "20"))
 RESET_DATA = os.getenv("RESET_DATA", "false").lower() == "true"
-LOAD_TEST_STOCK = int(os.getenv("LOAD_TEST_STOCK", "100"))
+LOAD_TEST_STOCK = int(os.getenv("LOAD_TEST_STOCK", "15"))
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,18 +49,14 @@ from app.services.redis_service import RedisService
 
 
 async def reset_campaign_data(session: AsyncSession) -> None:
-    """Clear orders, bids, and campaigns for a fresh load test."""
+    """Clear orders, bids, campaigns, and products for a fresh load test."""
     print("Resetting campaign data...")
     await session.execute(text("DELETE FROM orders"))
     await session.execute(text("DELETE FROM bids"))
     await session.execute(text("DELETE FROM campaigns"))
-    # Reset first product stock for load testing
-    await session.execute(
-        text(f"UPDATE products SET stock = {LOAD_TEST_STOCK} WHERE name LIKE '%Air Max%'")
-    )
+    await session.execute(text("DELETE FROM products"))
     await session.commit()
-    print(f"  Cleared orders, bids, campaigns")
-    print(f"  Reset Air Max stock to {LOAD_TEST_STOCK}")
+    print(f"  Cleared orders, bids, campaigns, products")
 
 
 async def seed_users(session: AsyncSession) -> list[User]:
@@ -121,7 +117,7 @@ async def seed_users(session: AsyncSession) -> list[User]:
 
 
 async def seed_products(session: AsyncSession) -> list[Product]:
-    """Create 5 test products with varying stock and prices."""
+    """Create 1 test product for load testing."""
     print("Seeding products...")
 
     # Check if products already exist
@@ -131,71 +127,29 @@ async def seed_products(session: AsyncSession) -> list[Product]:
         result = await session.execute(select(Product))
         return list(result.scalars().all())
 
-    products_data = [
-        {
-            "name": "限量球鞋 Air Max 2025",
-            "description": "2025年度限量發售運動鞋，全球限量100雙",
-            "image_url": "https://example.com/images/airmax2025.jpg",
-            "stock": 100,  # Default stock for load testing (overridden by LOAD_TEST_STOCK)
-            "min_price": Decimal("2000.00"),  # k6 test uses basePrice = 2000
-            "status": "active",
-        },
-        {
-            "name": "經典復刻手錶",
-            "description": "經典設計復刻版，限量發售50只",
-            "image_url": "https://example.com/images/watch.jpg",
-            "stock": 20,
-            "min_price": Decimal("2000.00"),
-            "status": "active",
-        },
-        {
-            "name": "限量版公仔",
-            "description": "知名設計師聯名款，全球限量200個",
-            "image_url": "https://example.com/images/figure.jpg",
-            "stock": 30,
-            "min_price": Decimal("500.00"),
-            "status": "active",
-        },
-        {
-            "name": "高級耳機 Pro Max",
-            "description": "旗艦級降噪耳機，限量版配色",
-            "image_url": "https://example.com/images/headphones.jpg",
-            "stock": 15,
-            "min_price": Decimal("800.00"),
-            "status": "active",
-        },
-        {
-            "name": "藝術畫作 NFT 實體版",
-            "description": "知名藝術家授權實體印刷版",
-            "image_url": "https://example.com/images/art.jpg",
-            "stock": 50,
-            "min_price": Decimal("300.00"),
-            "status": "active",
-        },
-    ]
+    product = Product(
+        name="高級耳機 Pro Max",
+        description="旗艦級降噪耳機，限量版配色",
+        image_url="https://example.com/images/headphones.jpg",
+        stock=LOAD_TEST_STOCK,
+        min_price=Decimal("800.00"),
+        status="active",
+    )
 
-    products = []
-    for data in products_data:
-        product = Product(**data)
-        products.append(product)
-
-    session.add_all(products)
+    session.add(product)
     await session.commit()
+    await session.refresh(product)
 
-    # Refresh to get IDs
-    for product in products:
-        await session.refresh(product)
-
-    print(f"  Created {len(products)} products")
-    return products
+    print(f"  Created product: {product.name} (stock={product.stock}, min_price={product.min_price})")
+    return [product]
 
 
 async def seed_campaign(session: AsyncSession, product: Product) -> Campaign:
-    """Create 1 active campaign with the first product.
+    """Create 1 active campaign with the product.
 
     Campaign settings:
-    - Duration: CAMPAIGN_DURATION_MINUTES (default 30) from now
-    - Stock (K): from product (default 100 for load testing)
+    - Duration: CAMPAIGN_DURATION_MINUTES (default 20) from now
+    - Stock (K): from product (default 15 for load testing)
     - alpha: 1.0, beta: 1000.0, gamma: 100.0
     """
     print("Seeding campaign...")
@@ -288,13 +242,14 @@ async def main():
         # Seed data in order
         users = await seed_users(session)
         products = await seed_products(session)
+        product = products[0]
 
         # Refresh product to get updated stock if reset
         if RESET_DATA:
-            await session.refresh(products[0])
+            await session.refresh(product)
 
-        # Create campaign with first product
-        campaign = await seed_campaign(session, products[0])
+        # Create campaign with the product
+        campaign = await seed_campaign(session, product)
 
     # Initialize Redis
     redis = await get_redis()
@@ -318,7 +273,7 @@ async def main():
     print("=" * 60)
     print("Seed data complete!")
     print(f"  Users: {len(users)}")
-    print(f"  Products: {len(products)}")
+    print(f"  Product: {product.name} (stock={product.stock})")
     print(f"  Active Campaign: {campaign.campaign_id}")
     print(f"  Campaign End Time: {campaign.end_time}")
     print("=" * 60)
